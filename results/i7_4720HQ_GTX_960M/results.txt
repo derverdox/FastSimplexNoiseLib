@@ -1,0 +1,51 @@
+Specs:
+CPU: I7_4720HQ
+- Cores: 4C / 8T (Base: 2.6 Ghz, Turbo: 3.6Ghz)
+- L1 Cache: 4 x (32kB Data + 32kB Instruction)
+- L2 Cache: 4 x 256kb
+- L3 Cache: 6MB (shared)
+- SIMD: AVX2 (8x32bit: 256-Bit)
+GPU: GTX 960M
+- Shader-Cores: 640 (CUDA) (Base 1096Mhz, Turbo: 1176Mhz)
+- VRAM: 2GB
+- Bandwidth: 80GB/s
+RAM: 16GB DDR3L
+- 2x8GB (Base: 1600Mhz)
+- Bandwidth: 25GB/s
+
+Benchmark                               (backend)      (shape)   Mode  Cnt     Score     Error  Units
+NoiseBenchJmh.benchChunk           CPU_SCALAR_SEQ     16x16x16  thrpt   20  3520,248 ±  77,040  ops/s
+NoiseBenchJmh.benchChunk           CPU_SCALAR_SEQ     32x32x32  thrpt   20   429,142 ±   2,186  ops/s
+NoiseBenchJmh.benchChunk           CPU_SCALAR_SEQ     64x64x64  thrpt   20    53,534 ±   0,932  ops/s
+NoiseBenchJmh.benchChunk           CPU_SCALAR_SEQ  128x128x128  thrpt   20     6,810 ±   0,053  ops/s
+NoiseBenchJmh.benchChunk           CPU_SCALAR_SEQ  256x256x256  thrpt   20     0,861 ±   0,004  ops/s
+NoiseBenchJmh.benchChunk           CPU_SCALAR_SEQ  512x512x512  thrpt   20     0,108 ±   0,001  ops/s
+NoiseBenchJmh.benchChunk      CPU_SCALAR_PARALLEL     16x16x16  thrpt   20  8361,055 ± 114,611  ops/s
+NoiseBenchJmh.benchChunk      CPU_SCALAR_PARALLEL     32x32x32  thrpt   20  1560,723 ±  16,030  ops/s
+NoiseBenchJmh.benchChunk      CPU_SCALAR_PARALLEL     64x64x64  thrpt   20   208,407 ±   2,065  ops/s
+NoiseBenchJmh.benchChunk      CPU_SCALAR_PARALLEL  128x128x128  thrpt   20    26,331 ±   0,435  ops/s
+NoiseBenchJmh.benchChunk      CPU_SCALAR_PARALLEL  256x256x256  thrpt   20     3,423 ±   0,047  ops/s
+NoiseBenchJmh.benchChunk      CPU_SCALAR_PARALLEL  512x512x512  thrpt   20     0,427 ±   0,005  ops/s
+NoiseBenchJmh.benchChunk       CPU_VECTORIZED_SEQ     16x16x16  thrpt   20  7744,062 ±  64,921  ops/s
+NoiseBenchJmh.benchChunk       CPU_VECTORIZED_SEQ     32x32x32  thrpt   20  1458,721 ±  58,960  ops/s
+NoiseBenchJmh.benchChunk       CPU_VECTORIZED_SEQ     64x64x64  thrpt   20   199,503 ±   1,475  ops/s
+NoiseBenchJmh.benchChunk       CPU_VECTORIZED_SEQ  128x128x128  thrpt   20    26,127 ±   0,213  ops/s
+NoiseBenchJmh.benchChunk       CPU_VECTORIZED_SEQ  256x256x256  thrpt   20     3,350 ±   0,033  ops/s
+NoiseBenchJmh.benchChunk       CPU_VECTORIZED_SEQ  512x512x512  thrpt   20     0,404 ±   0,003  ops/s
+NoiseBenchJmh.benchChunk  CPU_VECTORIZED_PARALLEL     16x16x16  thrpt   20  3580,917 ±  10,077  ops/s
+NoiseBenchJmh.benchChunk  CPU_VECTORIZED_PARALLEL     32x32x32  thrpt   20   429,960 ±   2,387  ops/s
+NoiseBenchJmh.benchChunk  CPU_VECTORIZED_PARALLEL     64x64x64  thrpt   20    55,172 ±   0,488  ops/s
+NoiseBenchJmh.benchChunk  CPU_VECTORIZED_PARALLEL  128x128x128  thrpt   20     6,737 ±   0,050  ops/s
+NoiseBenchJmh.benchChunk  CPU_VECTORIZED_PARALLEL  256x256x256  thrpt   20     0,844 ±   0,004  ops/s
+NoiseBenchJmh.benchChunk  CPU_VECTORIZED_PARALLEL  512x512x512  thrpt   20     0,107 ±   0,002  ops/s
+NoiseBenchJmh.benchChunk                      GPU     16x16x16  thrpt   20  5271,962 ± 573,810  ops/s
+NoiseBenchJmh.benchChunk                      GPU     32x32x32  thrpt   20  4460,156 ± 153,248  ops/s
+NoiseBenchJmh.benchChunk                      GPU     64x64x64  thrpt   20  2096,625 ±  19,008  ops/s
+NoiseBenchJmh.benchChunk                      GPU  128x128x128  thrpt   20   365,495 ±   1,534  ops/s
+NoiseBenchJmh.benchChunk                      GPU  256x256x256  thrpt   20    50,889 ±   0,098  ops/s
+NoiseBenchJmh.benchChunk                      GPU  512x512x512  thrpt   20     4,090 ±   0,030  ops/s
+
+Interpretation:
+> <= 32: CPU better than GPU. Not much parallelity needed.
+> 64-128: GPU better
+> >= 256: GPU way better (more bandwith)
