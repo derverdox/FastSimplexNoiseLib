@@ -48,6 +48,7 @@ public class NoiseJavaJtpBackend extends AparapiNoiseBackend<AbstractSimplexNois
         final int maxWG = preferredDevice.getMaxWorkGroupSize();
         final int[] maxIt = preferredDevice.getMaxWorkItemSize();
 
+        System.out.println();
         System.out.println("=== CPU-Parallel Backend ===");
         System.out.println("Device: " + preferredDevice.getShortDescription() + " (" + preferredDevice.getType() + ")");
 

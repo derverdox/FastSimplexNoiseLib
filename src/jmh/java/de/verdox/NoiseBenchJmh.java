@@ -26,6 +26,9 @@ public class NoiseBenchJmh {
 
     // Interne, aus 'shape' geparste Dimensionen:
     private int nx, ny, nz;
+    private float[] result;
+    private NoiseBackend noiseBackend;
+    private NoiseEngine3D engine;
 
     @Setup(Level.Trial)
     public void setup() {
@@ -40,22 +43,27 @@ public class NoiseBenchJmh {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("shape must contain integers: " + shape, e);
         }
-    }
 
-    @Benchmark
-    public float[] benchChunk() {
-        float[] result = new float[nx * ny * nz];
-        NoiseBackend noiseBackend = switch (Backend.valueOf(backend)) {
+        result = new float[nx * ny * nz];
+        noiseBackend = switch (Backend.valueOf(backend)) {
             case CPU_SCALAR_SEQ -> NoiseBackendFactory.cpuScalarSeq(result, nx, ny, nz);
             case CPU_SCALAR_PARALLEL -> NoiseBackendFactory.cpuScalarParallel(result, nx, ny, nz);
             case CPU_VECTORIZED_SEQ -> NoiseBackendFactory.cpuVectorizedParallel(result, nx, ny, nz);
             case CPU_VECTORIZED_PARALLEL -> NoiseBackendFactory.cpuVectorizedSeq(result, nx, ny, nz);
             case GPU -> NoiseBackendFactory.firstGPU(result, nx, ny, nz);
         };
-        //noiseBackend.logSetup();
-        NoiseEngine3D engine = new NoiseEngine3D(noiseBackend);
+        engine = new NoiseEngine3D(noiseBackend);
+        noiseBackend.logSetup();
+    }
+
+    @Benchmark
+    public float[] benchChunk() {
         engine.computeNoise(0, 0, 0, 0.009f);
-        noiseBackend.dispose();
         return result;
+    }
+
+    @TearDown(Level.Trial)
+    public void cleanUp() {
+        noiseBackend.dispose();
     }
 }

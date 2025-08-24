@@ -166,6 +166,7 @@ public class GPUOpenCLBackend extends AparapiNoiseBackend<AbstractScalarSimplexN
         final int[] maxIt = openCLDevice.getMaxWorkItemSize();
         final int CUs = openCLDevice.getMaxComputeUnits();
         final long lmem = openCLDevice.getLocalMemSize();
+        System.out.println();
         System.out.println("=== GPUOpenCLBackend ===");
         System.out.println("Device: " + openCLDevice.getName() + " (" + openCLDevice.getType() + ") | Vendor: " + openCLDevice
                 .getOpenCLPlatform().getVersion());

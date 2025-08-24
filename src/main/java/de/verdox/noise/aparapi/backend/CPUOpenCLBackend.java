@@ -34,6 +34,7 @@ public class CPUOpenCLBackend extends GPUOpenCLBackend {
         final int CUs = openCLDevice.getMaxComputeUnits();
         final long lmem = openCLDevice.getLocalMemSize();
 
+        System.out.println();
         System.out.println("=== CPUOpenCLBackend ===");
         System.out.println("Device: " + openCLDevice.getName() + " (" + openCLDevice.getType() + ") | Vendor: " + openCLDevice
                 .getOpenCLPlatform().getVersion());

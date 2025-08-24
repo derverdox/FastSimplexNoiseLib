@@ -39,6 +39,7 @@ public class NoiseJavaSeqBackend extends AparapiNoiseBackend<AbstractSimplexNois
 
     @Override
     public void logSetup() {
+        System.out.println();
         System.out.println("=== CPU-Seq Backend ===");
         System.out.println("Device: Sequential CPU");
         System.out.println("CPU Cores: " + Runtime.getRuntime().availableProcessors());
