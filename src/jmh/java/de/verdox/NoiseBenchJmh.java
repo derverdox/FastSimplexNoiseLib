@@ -52,7 +52,7 @@ public class NoiseBenchJmh {
             case CPU_VECTORIZED_PARALLEL -> NoiseBackendFactory.cpuVectorizedSeq(result, nx, ny, nz);
             case GPU -> NoiseBackendFactory.firstGPU(result, nx, ny, nz);
         };
-        noiseBackend.logSetup();
+        //noiseBackend.logSetup();
         NoiseEngine3D engine = new NoiseEngine3D(noiseBackend);
         engine.computeNoise(0, 0, 0, 0.009f);
         return result;
