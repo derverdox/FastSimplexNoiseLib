@@ -1,3 +1,10 @@
+2.1 Ghz Base
+20C, 28T
+
+2x16GB 5600Mhz
+8GB VRAM
+
+
 Benchmark                               (backend)         (shape)   Mode  Cnt      Score      Error  Units
 NoiseBenchJmh.benchChunk           CPU_SCALAR_SEQ        16x16x16  thrpt   20   7625,241 ±   48,417  ops/s
 NoiseBenchJmh.benchChunk           CPU_SCALAR_SEQ        32x32x32  thrpt   20    753,455 ±    4,412  ops/s
