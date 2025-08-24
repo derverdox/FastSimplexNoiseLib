@@ -15,24 +15,12 @@ public class SimplexNoiseGpu3D {
 		return simplexKernel.getResult();
 	}
 
-    public static synchronized void calculate(float[] out, float x, float y, float z, int width, int height, int depth,
-                                                 float frequency) {
-        simplexKernel.setParameters(out, x, y, z, width, height, depth, frequency);
-        simplexKernel.execute(width * height * depth);
-    }
-
 	public static synchronized float[] calculateFast(float x, float y, float z, int width, int height, int depth,
 			float frequency) {
 		fastSimplexKernel.setParameters(x, y, z, width, height, depth, frequency);
 		fastSimplexKernel.execute(width * height * depth);
 		return fastSimplexKernel.getResult();
 	}
-
-    public static synchronized void calculateFast(float[] out, float x, float y, float z, int width, int height, int depth,
-                                                     float frequency) {
-        fastSimplexKernel.setParameters(out, x, y, z, width, height, depth, frequency);
-        fastSimplexKernel.execute(width * height * depth);
-    }
 
 	public static synchronized float[] calculateOctaved(float x, float y, float z, int width, int height, int depth,
 			float frequency, float[] weight) {

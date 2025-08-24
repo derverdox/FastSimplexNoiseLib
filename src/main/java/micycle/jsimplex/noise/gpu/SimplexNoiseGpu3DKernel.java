@@ -30,20 +30,16 @@ class SimplexNoiseGpu3DKernel extends Kernel {
 		return r;
 	}
 
-    public void setParameters(float x, float y, float z, int width, int height, int depth, float frequency) {
-        setParameters(new float[width * height * depth], x, y, z, width, height, depth, frequency);
-    }
-
-    public void setParameters(float[] out, float x, float y, float z, int width, int height, int depth, float frequency) {
-        argsFloat[0] = x;
-        argsFloat[1] = y;
-        argsFloat[2] = z;
-        argsInt[0] = width;
-        argsInt[1] = height;
-        argsInt[2] = depth;
-        argsFloat[3] = frequency;
-        r = out;
-    }
+	public void setParameters(float x, float y, float z, int width, int height, int depth, float frequency) {
+		argsFloat[0] = x;
+		argsFloat[1] = y;
+		argsFloat[2] = z;
+		argsInt[0] = width;
+		argsInt[1] = height;
+		argsInt[2] = depth;
+		argsFloat[3] = frequency;
+		r = new float[width * height * depth];
+	}
 
 	@Override
 	public void run() {

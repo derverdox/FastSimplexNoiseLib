@@ -28,6 +28,16 @@ tasks.test {
     jvmArgs("--enable-preview", "--add-modules", "jdk.incubator.vector")
 }
 
+tasks.withType<JavaExec>(configuration = {
+    jvmArgs(
+        "--enable-preview",
+        "--add-modules", "jdk.incubator.vector",
+        "-Dcom.aparapi.verbose=true",
+        "-Dcom.aparapi.enableExecutionModeReporting=true",
+        "-Dcom.aparapi.opencl.dumpKernel=true"
+    )
+})
+
 tasks.compileJava {
     options.compilerArgs.add("--enable-preview")
     options.compilerArgs.add("--add-modules")
@@ -43,8 +53,6 @@ jmh {
     iterations.set(10)
     fork.set(2)
 
-    // Falls du die Vector API (Incubator/Preview) nutzt:
-    // Achtung: Einige JDKs erwarten nur --enable-preview, andere zusätzlich --add-modules
     jvmArgsAppend.set(
         listOf(
             "--enable-preview",
