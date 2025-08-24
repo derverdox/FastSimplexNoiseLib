@@ -4,6 +4,12 @@
 2x16GB 5600Mhz
 8GB VRAM
 
+l1: 1.8mb
+l2: 28mb
+l3: 33mb
+
+DDR5
+
 
 Benchmark                               (backend)         (shape)   Mode  Cnt      Score      Error  Units
 NoiseBenchJmh.benchChunk           CPU_SCALAR_SEQ        16x16x16  thrpt   20   7625,241 ±   48,417  ops/s
