@@ -55,6 +55,7 @@ public class NoiseBenchJmh {
         //noiseBackend.logSetup();
         NoiseEngine3D engine = new NoiseEngine3D(noiseBackend);
         engine.computeNoise(0, 0, 0, 0.009f);
+        noiseBackend.dispose();
         return result;
     }
 }
