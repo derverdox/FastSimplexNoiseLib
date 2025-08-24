@@ -1,3 +1,14 @@
+3.6Ghz base
+L1: 512
+L2: 2MB
+L3: 16mb
+
+8C, 16T
+2x16GB 3000Mhz DDR4
+
+VRAM: 11GB
+
+
 Benchmark                               (backend)         (shape)   Mode  Cnt      Score     Error  Units
 NoiseBenchJmh.benchChunk           CPU_SCALAR_SEQ        16x16x16  thrpt   20   6099,328 ±  18,590  ops/s
 NoiseBenchJmh.benchChunk           CPU_SCALAR_SEQ        32x32x32  thrpt   20    656,687 ±   2,480  ops/s
