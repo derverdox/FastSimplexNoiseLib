@@ -23,7 +23,7 @@ public class CPUOpenCLBackend extends GPUOpenCLBackend {
         this.local1D = Math.min(256, clCpu.getMaxWorkGroupSize());
         this.slabDepth = Math.min(32, depth);
 
-        this.kernel = new ScalarSimplexNoise3DKernel1D();
+        this.kernel = createKernel();
         return this.kernel;
     }
 

@@ -9,9 +9,9 @@ import de.verdox.noise.aparapi.kernel.AbstractSimplexNoise3DAparapiKernel;
 
 import java.util.LinkedHashSet;
 
-public abstract class AparapiNoiseBackend<BACKEND extends AbstractSimplexNoise3DAparapiKernel> extends NoiseBackend {
+public abstract class AparapiNoiseBackend<KERNEL extends AbstractSimplexNoise3DAparapiKernel> extends NoiseBackend {
     protected final Device preferredDevice;
-    protected BACKEND kernel;
+    protected KERNEL kernel;
 
     protected boolean use3DRange;
     protected int localX, localY, localZ;
@@ -31,7 +31,8 @@ public abstract class AparapiNoiseBackend<BACKEND extends AbstractSimplexNoise3D
         this.kernel = setup();
     }
 
-    protected abstract BACKEND setup();
+    protected abstract KERNEL setup();
+    protected abstract KERNEL createKernel();
 
     @Override
     public void dispose() {

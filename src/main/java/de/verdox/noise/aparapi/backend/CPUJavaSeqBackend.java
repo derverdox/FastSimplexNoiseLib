@@ -43,6 +43,7 @@ public class CPUJavaSeqBackend extends CPUJavaNoiseBackend {
                     // 3) Kernel auf den kleinen Ausschnitt loslassen
                     //    Achtung: 1D-Kernel decodiert i -> x,y,z aus width/height/depth,
                     //    also geben wir height=rows, depth=dz und base=0.
+                    Arrays.fill(cacheSlab, 0);
                     kernel.bindOutput(cacheSlab);
                     kernel.setParameters(
                             x0,
@@ -62,8 +63,8 @@ public class CPUJavaSeqBackend extends CPUJavaNoiseBackend {
                         final int src = z * rowStride;
                         final int dst = (zStart + z) * plane + yStart * width;
                         System.arraycopy(cacheSlab, src, result, dst, rowStride);
-                        Arrays.fill(cacheSlab, 0);
                     }
+
                 }
             }
         }

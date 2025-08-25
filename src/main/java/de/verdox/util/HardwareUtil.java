@@ -2,12 +2,15 @@ package de.verdox.util;
 
 import oshi.SystemInfo;
 import oshi.hardware.CentralProcessor;
-import oshi.hardware.PhysicalMemory;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class HardwareUtil {
+
+    public static int getPhysicalProcessorCount() {
+        return new SystemInfo().getHardware().getProcessor().getPhysicalProcessorCount();
+    }
 
     public static void printCPU() {
         SystemInfo si = new SystemInfo();

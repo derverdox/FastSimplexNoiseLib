@@ -9,7 +9,7 @@ import java.io.IOException;
 
 public class Main {
 
-    private static final int size = 1024;
+    private static final int size = 64;
 
     public static void main(String[] args) throws IOException {
         float[] result = new float[size * size * size];
@@ -25,7 +25,7 @@ public class Main {
         HardwareUtil.printCPU();
 
 
-        NoiseBackend backend = cpuParallelScalar;
+        NoiseBackend backend = gpu;
 
         NoiseEngine3D engine = new NoiseEngine3D(backend);
         backend.logSetup();

@@ -25,6 +25,14 @@ public class GPUOpenCLBackend extends AparapiNoiseBackend<AbstractScalarSimplexN
         this.executionMode = Kernel.EXECUTION_MODE.GPU;
     }
 
+    @Override
+    protected AbstractScalarSimplexNoise3DAparapiKernel createKernel() {
+        if(use3DRange) {
+            return kernel = new ScalarSimplexNoise3DKernel3D();
+        }
+        return new ScalarSimplexNoise3DKernel1D();
+    }
+
     // ----------- Public API -----------
 
     /**
@@ -124,13 +132,12 @@ public class GPUOpenCLBackend extends AparapiNoiseBackend<AbstractScalarSimplexN
             localY = local3D[1];
             localZ = local3D[2];
             slabDepth = AparapiBackendUtil.pickDzFor3D(width, height, depth, localX, localY, localZ, CUs);
-            kernel = new ScalarSimplexNoise3DKernel3D();
         } else {
             use3DRange = false;
             local1D = AparapiBackendUtil.pickLocal1D(maxWG, warp);
             slabDepth = AparapiBackendUtil.pickDzFor1D(width, height, depth, local1D, CUs);
-            kernel = new ScalarSimplexNoise3DKernel1D();
         }
+        kernel = createKernel();
 
         // ---- Staging-Setup, falls direkte Bindung nicht geht
         if (!canDirectWrite) {

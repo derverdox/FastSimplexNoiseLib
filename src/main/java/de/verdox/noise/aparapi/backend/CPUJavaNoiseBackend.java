@@ -7,13 +7,19 @@ import de.verdox.noise.aparapi.kernel.scalar.VectorizedSimplexNoise3DKernel1D;
 import de.verdox.util.FormatUtil;
 import de.verdox.util.HardwareUtil;
 
-import java.util.Arrays;
+import java.util.concurrent.ExecutorService;
 
 public abstract class CPUJavaNoiseBackend extends AparapiNoiseBackend<AbstractSimplexNoise3DAparapiKernel> {
     protected final boolean vectorized;
     protected final boolean optimizeCache;
     protected int rowsPerTask;
     protected float[] cacheSlab;
+
+    protected ThreadLocal<AbstractSimplexNoise3DAparapiKernel> cacheOptKernels;
+    protected ThreadLocal<float[]> slabsPerThread;
+    protected ExecutorService cacheOptPool;
+    private int maxSlabElems;
+    protected static final int physicalProcessors = HardwareUtil.getPhysicalProcessorCount();
 
     public CPUJavaNoiseBackend(Device preferredDevice, boolean vectorized, boolean optimizeCache, float[] result, int width, int height, int depth) {
         super(preferredDevice, result, width, height, depth);
@@ -24,19 +30,32 @@ public abstract class CPUJavaNoiseBackend extends AparapiNoiseBackend<AbstractSi
     @Override
     protected AbstractSimplexNoise3DAparapiKernel setup() {
         if (optimizeCache) {
-            int threads = threadsUsed();
+            int threads = physicalProcessors;
+            System.out.println(physicalProcessors);
             long l3 = HardwareUtil.readCaches().l3.sizeBytes();
-
             this.slabDepth = pickDzFor1D(width, height, depth, Float.BYTES, threads, l3);
-
             this.rowsPerTask = pickRowsPerTaskFor1DWithDz(width, slabDepth, Float.BYTES, threads, l3);
+            maxSlabElems = width * rowsPerTask * slabDepth;
 
-
-            int maxSlabElems = width * rowsPerTask * slabDepth;
             cacheSlab = new float[maxSlabElems];
+            if(cacheOptPool == null) {
+                cacheOptPool = java.util.concurrent.Executors.newFixedThreadPool(threads, r -> {
+                    Thread t = new Thread(r);
+                    t.setDaemon(true);
+                    return t;
+                });
+            }
+
+            this.cacheOptKernels = ThreadLocal.withInitial(this::createKernel);
+            this.slabsPerThread = ThreadLocal.withInitial(() -> new float[maxSlabElems]);
         }
-        this.kernel = vectorized ? new VectorizedSimplexNoise3DKernel1D() : new ScalarSimplexNoise3DKernel1D();
+        this.kernel = createKernel();
         return this.kernel;
+    }
+
+    @Override
+    protected AbstractSimplexNoise3DAparapiKernel createKernel() {
+        return vectorized ? new VectorizedSimplexNoise3DKernel1D() : new ScalarSimplexNoise3DKernel1D();
     }
 
     protected abstract int threadsUsed();
@@ -46,19 +65,21 @@ public abstract class CPUJavaNoiseBackend extends AparapiNoiseBackend<AbstractSi
 
         HardwareUtil.printCPU();
         System.out.println("Allocated: " + FormatUtil.formatBytes2((long) width * height * depth * Float.BYTES));
-        if (preferredDevice != null) {
-            final int maxWG = preferredDevice.getMaxWorkGroupSize();
-            final int[] maxIt = preferredDevice.getMaxWorkItemSize();
-            System.out.println("MaxWorkGroupSize: " + maxWG + " | MaxWorkItemSizes: " + Arrays.toString(maxIt));
-        }
-
         if (cacheSlab != null) {
-            System.out.println("Cache Slab Size: " + FormatUtil.formatBytes2(cacheSlab.length * Float.BYTES));
-            System.out.println("Rows per task: " + rowsPerTask);
+            System.out.println("Cache Optimization Mode: Splitting L3 Cache to "+threadsUsed()+" threads with "+FormatUtil.formatBytes2(cacheSlab.length * Float.BYTES)+" for each");
         }
 
         System.out.printf("Mode: 1D | local=%d | slabDepth=%d | dims=(%d,%d,%d)%n", local1D, slabDepth, width, height, depth);
         System.out.println("================================");
+    }
+
+    @Override
+    public void dispose() {
+        super.dispose();
+        if(cacheOptPool != null) {
+            cacheOptPool.close();
+            cacheOptPool = null;
+        }
     }
 
     /**
