@@ -14,12 +14,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @Warmup(iterations = 5, time = 1, timeUnit = SECONDS)
 @Measurement(iterations = 10, time = 1, timeUnit = SECONDS)
 @Fork(2)
-public class NoiseBenchJmh {
-
-    // --- Backend- und Lauf-Parameter ---
-    @Param({"CPU_SCALAR_SEQ", "CPU_SCALAR_PARALLEL", "CPU_VECTORIZED_SEQ", "CPU_VECTORIZED_PARALLEL", "GPU"})
-    public String backend;
-
+public class GPUNoiseBenchJmh {
     // --- Variante A: Größe als Tripel-String (am bequemsten) ---
     @Param({"16x16x16", "32x32x32", "64x64x64", "128x128x128", "256x256x256", "512x512x512", "1024x1024x1024"})
     public String shape; // wird in @Setup geparst
@@ -45,19 +40,13 @@ public class NoiseBenchJmh {
         }
 
         result = new float[nx * ny * nz];
-        noiseBackend = switch (Backend.valueOf(backend)) {
-            case CPU_SCALAR_SEQ -> NoiseBackendFactory.cpuScalarSeq(result, nx, ny, nz);
-            case CPU_SCALAR_PARALLEL -> NoiseBackendFactory.cpuScalarParallel(result, nx, ny, nz);
-            case CPU_VECTORIZED_SEQ -> NoiseBackendFactory.cpuVectorizedParallel(result, nx, ny, nz);
-            case CPU_VECTORIZED_PARALLEL -> NoiseBackendFactory.cpuVectorizedSeq(result, nx, ny, nz);
-            case GPU -> NoiseBackendFactory.firstGPU(result, nx, ny, nz);
-        };
+        noiseBackend = NoiseBackendFactory.firstGPU(result, nx, ny, nz);
         engine = new NoiseEngine3D(noiseBackend);
         noiseBackend.logSetup();
     }
 
     @Benchmark
-    public float[] benchChunk() {
+    public float[] benchNoise() {
         engine.computeNoise(0, 0, 0, 0.009f);
         return result;
     }

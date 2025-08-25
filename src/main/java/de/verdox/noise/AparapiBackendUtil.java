@@ -1,14 +1,95 @@
 package de.verdox.noise;
 
 import com.aparapi.device.OpenCLDevice;
+import de.verdox.util.HardwareUtil;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public class AparapiBackendUtil {
 
     public static final int MAX_OPENCL_GROUP_SIZE = 256;
+
+    /**
+     * Wähle eine dz-Slab-Tiefe für CPU-Backend (3D), sodass W*H*dz*bytesPerVoxel in ein Budget passt,
+     * z.B. 50% des L3. Optional: runde auf Vielfaches einer "Thread-Kachel".
+     */
+    public static int pickSlabDepthForL3(int W, int H, int D, int bytesPerVoxel, int threads) {
+        HardwareUtil.CacheSizes cs = HardwareUtil.readCaches();
+
+        long l3 = (cs.l3.sizeBytes() > 0) ? cs.l3.sizeBytes() : 0;
+        double frac = (cs.l3.sizeBytes() > 0) ? 0.50 : 0.25;
+        long budget = (long) Math.max(1, l3 * frac);
+
+        long plane = (long) W * H * bytesPerVoxel;
+        int dz = (int) Math.max(1L, Math.min((long)D, budget / Math.max(1, plane)));
+
+        long minElems = (long) threads * 8192L; // heuristisch
+        long elems = (long) W * H * dz;
+        if (elems < minElems) {
+            long need = (minElems + (W*H) - 1) / (W*H);
+            dz = (int) Math.min((long) D, Math.max((long) dz, need));
+        }
+
+        int base = 16;
+        dz = Math.max(base, (dz / base) * base);
+        dz = Math.min(dz, D);
+
+        dz = Math.min(dz, 1024);
+        return dz;
+    }
+
+    /** Wähle eine sinnvolle Slab-Tiefe (dz) für Range.create3D(W,H,dz). */
+    public static int pickSlabDepth3D(
+            com.aparapi.device.OpenCLDevice dev,
+            int W, int H, int D,
+            int localX, int localY, int localZ,
+            int bytesPerVoxel // float=4
+    ) {
+        // 1) Platz im VRAM (konservativ nur Anteil nutzen)
+        long vram = dev.getGlobalMemSize();               // gesamt VRAM
+        long vramBudget = (long)(vram * 0.50);            // z.B. 50% Budget
+        long maxBuffer = Math.max(64L << 20, Math.min(vramBudget, 256L << 20)); // 64–256 MB Ziel
+
+        // 2) Zielthreads: genug Work-Groups
+        int cus = dev.getMaxComputeUnits();               // z.B. 68
+        int targetWorkgroups = cus * 8;                   // grob: 8 WGs pro CU
+        // Mindestanzahl globaler Work-Items (sehr grob):
+        long minGlobalItems = (long)targetWorkgroups * (long)(localX*localY*localZ);
+
+        // 3) Erste Abschätzung von dz aus Speicherbudget
+        long planeBytes = (long) W * H * bytesPerVoxel;   // bytes pro z-Slice
+        int dzByMem = (int)Math.max(1L, Math.min(D, maxBuffer / Math.max(1, planeBytes)));
+
+        // 4) Threads-Check: falls zu wenig Items, dz erhöhen (bis zu D)
+        long gItems = (long)W * H * dzByMem;
+        if (gItems < minGlobalItems) {
+            long need = (minGlobalItems + (W*H) - 1) / (W*H);
+            dzByMem = (int)Math.min((long)D, Math.max((long)dzByMem, need));
+        }
+
+        // 5) An lokale Größe anpassen (Vielfaches von localZ) und Grenzen
+        int dz = Math.max(localZ, (dzByMem / localZ) * localZ);
+        dz = Math.min(dz, D);
+        // Sicherheitskorridor: nicht zu klein, nicht „riesig“
+        dz = clamp(dz, localZ, Math.min(D, 1024)); // 1024 nur als Deckel gegen übergroße Slabs
+
+        return dz;
+    }
+
+    private static int clamp(int v, int lo, int hi) {
+        return Math.max(lo, Math.min(hi, v));
+    }
+
+    /** Für 1D-CPU-Backend: wie viele Zeilen (Y) pro Task? -> Ziel: ~512KB-1MB Output pro Task. */
+    public static int pickRowsPerTask(int W, int bytesPerVoxel) {
+        long target = 768L << 10; // ~768 KB
+        long rowBytes = (long) W * bytesPerVoxel;
+        int rows = (int) Math.max(1L, target / Math.max(1, rowBytes));
+        // runde auf 8er-Schritte:
+        rows = Math.max(8, (rows / 8) * 8);
+        return rows;
+    }
 
     /** 3D-Local-Size zur Laufzeit generieren (warp-aware) & bewerten. */
     public static int[] pickLocal3D(int W, int H, int D, int maxWG, int[] maxIt, int warp) {
@@ -102,19 +183,6 @@ public class AparapiBackendUtil {
         if (v.contains("nvidia")) return 32;
         if (v.contains("advanced micro") || v.contains("amd")) return 64;
         return 32; // konservativ (Intel/sonstige)
-    }
-
-    public static String formatBytes(long bytes) {
-        if (bytes < 1024) {
-            return bytes + " B";
-        }
-        // Einheiten-Labels für 1024er-Potenzen
-        String[] units = {"KiB", "MiB", "GiB", "TiB", "PiB", "EiB"};
-        // Berechne, welche Potenz von 1024 wir brauchen
-        int exp = (int) (Math.log(bytes) / Math.log(1024));
-        double value = bytes / Math.pow(1024, exp);
-        // Format mit zwei Nachkommastellen
-        return String.format(Locale.US, "%.2f %s", value, units[exp - 1]);
     }
 
     /** Wählt ein gutes rowsPerTask für (width,height,depth). */

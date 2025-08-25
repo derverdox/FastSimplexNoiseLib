@@ -49,22 +49,22 @@ public abstract class AparapiNoiseBackend<BACKEND extends AbstractSimplexNoise3D
         generate1D(x0, y0, z0, frequency);
     }
 
-    public static AparapiNoiseBackend<?> construct(Device.TYPE deviceType, boolean vectorized, float[] noiseField, int width, int height, int depth) {
-        return construct(null, deviceType, vectorized, noiseField, width, height, depth);
+    public static AparapiNoiseBackend<?> construct(Device.TYPE deviceType, boolean vectorized, boolean optimizeCache, float[] noiseField, int width, int height, int depth) {
+        return construct(null, deviceType, vectorized, optimizeCache, noiseField, width, height, depth);
     }
 
-    public static AparapiNoiseBackend<?> construct(Device device, boolean vectorized, float[] noiseField, int width, int height, int depth) {
-        return construct(device, device.getType(), vectorized, noiseField, width, height, depth);
+    public static AparapiNoiseBackend<?> construct(Device device, boolean vectorized, boolean optimizeCache, float[] noiseField, int width, int height, int depth) {
+        return construct(device, device.getType(), vectorized, optimizeCache, noiseField, width, height, depth);
     }
 
-    public static AparapiNoiseBackend<?> construct(Device device, Device.TYPE deviceType, boolean vectorized, float[] noiseField, int width, int height, int depth) {
+    public static AparapiNoiseBackend<?> construct(Device device, Device.TYPE deviceType, boolean vectorized, boolean optimizeCache, float[] noiseField, int width, int height, int depth) {
         AparapiNoiseBackend<?> result;
 
         result = switch (deviceType) {
             case GPU -> new GPUOpenCLBackend((OpenCLDevice) device, noiseField, width, height, depth);
             case CPU -> new CPUOpenCLBackend((OpenCLDevice) device, noiseField, width, height, depth);
-            case JTP -> new NoiseJavaJtpBackend(device, vectorized, noiseField, width, height, depth);
-            case SEQ -> new NoiseJavaSeqBackend(device, vectorized, noiseField, width, height, depth);
+            case JTP -> new CPUJavaJtpBackend(device, vectorized, optimizeCache, noiseField, width, height, depth);
+            case SEQ -> new CPUJavaSeqBackend(device, vectorized, optimizeCache, noiseField, width, height, depth);
             default ->
                     throw new IllegalArgumentException("No backend found for device type: " + device.getType().name());
         };

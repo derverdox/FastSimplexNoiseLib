@@ -1,12 +1,16 @@
-3.6Ghz base
-L1: 512
-L2: 2MB
-L3: 16mb
+CPU: i9-9900K (Coffee Lake-R)
+> Cores: 8C / 16T (Base 3.6 GHz, Turbo bis 5.0 GHz)
+> L1 Cache: 8 × (32 KB D + 32 KB I) = 512 KB gesamt
+> L2 Cache: 8 × 256 KB = 2 MB
+> L3 Cache: 16 MB (shared)
+> SIMD: AVX2 + FMA (256-Bit ⇒ 8× FP32 parallel)
+> RAM: 2×16 GB DDR4-3000 (Dual-Channel)
+> Theoretische Bandbreite: ≈ 48 GB/s (3000 MT/s × 8 B × 2 Kanäle)
 
-8C, 16T
-2x16GB 3000Mhz DDR4
-
-VRAM: 11GB
+GPU: GeForce RTX 2080 Ti
+> Shader-Cores: 4352 CUDA
+> VRAM: 11 GB GDDR6, 352-Bit
+> Speicherbandbreite: ≈ 616 GB/s
 
 
 Benchmark                               (backend)         (shape)   Mode  Cnt      Score     Error  Units

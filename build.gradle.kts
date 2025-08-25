@@ -12,6 +12,7 @@ repositories {
 
 dependencies {
     implementation("com.aparapi:aparapi:3.0.0")
+    implementation("com.github.oshi:oshi-core:6.8.3")
 
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -33,7 +34,7 @@ tasks.withType<JavaExec>(configuration = {
         "--enable-preview",
         "--add-modules", "jdk.incubator.vector",
         "-Dcom.aparapi.verbose=true",
-        "-Dcom.aparapi.enableExecutionModeReporting=true",
+        "-Dcom.aparapi.enableExecutionModeReporting=false",
         "-Dcom.aparapi.opencl.dumpKernel=true"
     )
 })

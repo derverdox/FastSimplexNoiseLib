@@ -2,9 +2,9 @@ package de.verdox.noise.aparapi.backend;
 
 import com.aparapi.Kernel;
 import com.aparapi.device.OpenCLDevice;
-import de.verdox.noise.AparapiBackendUtil;
 import de.verdox.noise.aparapi.kernel.scalar.AbstractScalarSimplexNoise3DAparapiKernel;
 import de.verdox.noise.aparapi.kernel.scalar.ScalarSimplexNoise3DKernel1D;
+import de.verdox.util.FormatUtil;
 
 import java.util.Arrays;
 
@@ -40,15 +40,15 @@ public class CPUOpenCLBackend extends GPUOpenCLBackend {
                 .getOpenCLPlatform().getVersion());
 
         System.out.println("CPU Cores: " + Runtime.getRuntime().availableProcessors());
-        System.out.println("JVM Memory: " + AparapiBackendUtil.formatBytes(Runtime.getRuntime()
-                                                                                  .freeMemory()) + "/" + AparapiBackendUtil.formatBytes(Runtime
+        System.out.println("JVM Memory: " + FormatUtil.formatBytes2(Runtime.getRuntime()
+                                                                           .freeMemory()) + "/" + FormatUtil.formatBytes2(Runtime
                 .getRuntime().totalMemory()));
 
-        System.out.println("Allocated: " + AparapiBackendUtil.formatBytes((long) width * height * depth * Float.BYTES) + " / " + AparapiBackendUtil.formatBytes(openCLDevice.getMaxMemAllocSize()));
+        System.out.println("Allocated: " + FormatUtil.formatBytes2((long) width * height * depth * Float.BYTES) + " / " + FormatUtil.formatBytes2(openCLDevice.getMaxMemAllocSize()));
 
         System.out.println("OpenCL: " + openCLDevice.getOpenCLPlatform().getVersion());
         System.out.println("MaxWorkGroupSize: " + maxWG + " | MaxWorkItemSizes: " + Arrays.toString(maxIt));
-        System.out.println("MaxComputeUnits: " + CUs + " | LocalMemSize: " + AparapiBackendUtil.formatBytes(lmem));
+        System.out.println("MaxComputeUnits: " + CUs + " | LocalMemSize: " + FormatUtil.formatBytes2(lmem));
 
         System.out.printf("Mode: 1D | local=%d | slabDepth=%d | dims=(%d,%d,%d)%n",
                 local1D, slabDepth, width, height, depth);
