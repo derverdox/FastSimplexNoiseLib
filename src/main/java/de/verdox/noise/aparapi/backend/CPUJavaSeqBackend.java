@@ -78,7 +78,6 @@ public class CPUJavaSeqBackend extends CPUJavaNoiseBackend {
 
             // global size: vectorized => Wv * height * depth ; sonst plane * depth
             final int global = Wv * height * depth;
-            System.out.println("W: " + Wv + ", H: " + height + ", D: " + depth+" -> Range: "+Range.create(global, 1));
             kernel.execute(Range.create(global, 1));
         }
     }
