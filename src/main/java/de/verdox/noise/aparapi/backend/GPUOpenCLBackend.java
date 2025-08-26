@@ -27,7 +27,7 @@ public class GPUOpenCLBackend extends AparapiNoiseBackend<AbstractScalarSimplexN
 
     @Override
     protected AbstractScalarSimplexNoise3DAparapiKernel createKernel() {
-        if(use3DRange) {
+        if (use3DRange) {
             return kernel = new ScalarSimplexNoise3DKernel3D();
         }
         return new ScalarSimplexNoise3DKernel1D();
@@ -176,19 +176,23 @@ public class GPUOpenCLBackend extends AparapiNoiseBackend<AbstractScalarSimplexN
         final long lmem = openCLDevice.getLocalMemSize();
         System.out.println();
         System.out.println("=== GPUOpenCLBackend ===");
+        System.out.println("Cuda Cores: ");
+        System.out.println("Compute Units: " + CUs);
+        System.out.println("> L1 Cache: " + FormatUtil.formatBytes2(lmem));
+        System.out.println("> Warp Size: " + AparapiBackendUtil.detectPreferredWarp(openCLDevice) + " threads");
+
+
         System.out.println("Device: " + openCLDevice.getName() + " (" + openCLDevice.getType() + ") | Vendor: " + openCLDevice
                 .getOpenCLPlatform().getVersion());
         System.out.println("Write Mode: " + (canDirectWrite ? "Direct" : "Non-Direct"));
-        if(canDirectWrite) {
+        if (canDirectWrite) {
             System.out.println("Allocated: " + FormatUtil.formatBytes2((long) width * height * depth * Float.BYTES) + " / " + FormatUtil.formatBytes2(openCLDevice.getMaxMemAllocSize()));
-        }
-        else {
+        } else {
             System.out.println("Allocated: " + FormatUtil.formatBytes2((long) scratch.length * Float.BYTES) + " / " + FormatUtil.formatBytes2(openCLDevice.getMaxMemAllocSize()));
         }
 
         System.out.println("OpenCL: " + openCLDevice.getOpenCLPlatform().getVersion());
         System.out.println("MaxWorkGroupSize: " + maxWG + " | MaxWorkItemSizes: " + Arrays.toString(maxIt));
-        System.out.println("MaxComputeUnits: " + CUs + " | LocalMemSize: " + FormatUtil.formatBytes2(lmem));
 
         if (use3DRange) {
             System.out.printf("Mode: 3D | local=(%d,%d,%d) | slabDepth=%d | dims=(%d,%d,%d)%n",

@@ -10,6 +10,7 @@ CPU: i7-14700HX (Raptor Lake-HX)
 GPU: GeForce RTX 4060 Laptop
 > Shader-Cores: 3072 CUDA
 > VRAM: 8 GB GDDR6, 128-Bit
+- Bandwidth: 80GB/s
 > Typische Bandbreite: ≈ 256 GB/s (128-Bit @ 16 Gb/s effektiv)
 
 

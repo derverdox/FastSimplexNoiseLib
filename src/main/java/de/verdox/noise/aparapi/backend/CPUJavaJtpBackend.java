@@ -4,7 +4,7 @@ import com.aparapi.Kernel;
 import com.aparapi.Range;
 import com.aparapi.device.Device;
 import de.verdox.noise.aparapi.kernel.AbstractSimplexNoise3DAparapiKernel;
-import de.verdox.util.FormatUtil;
+import de.verdox.util.HardwareUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +32,9 @@ public class CPUJavaJtpBackend extends CPUJavaNoiseBackend {
     @Override
     public void generate1D(float x0, float y0, float z0, float f) {
         final int plane = width * height;
+        final int L     = vectorized ? HardwareUtil.getVectorLaneLength() : 1;
+        final int Wv    = vectorized ? (width + L - 1) / L : width;
+
         if (optimizeCache && this.cacheOptKernels != null) {
 
             List<Future<?>> futures = new ArrayList<>(1024);
@@ -42,32 +45,37 @@ public class CPUJavaJtpBackend extends CPUJavaNoiseBackend {
                 for (int yStart = 0; yStart < height; yStart += rowsPerTask) {
                     final int rows = Math.min(rowsPerTask, height - yStart);
 
-                    int finalYStart = yStart;
-                    int finalZStart = zStart;
+                    final int finalYStart = yStart;
+                    final int finalZStart = zStart;
 
                     Future<?> future = cacheOptPool.submit(() -> {
                         AbstractSimplexNoise3DAparapiKernel kernel = cacheOptKernels.get();
                         float[] slab = slabsPerThread.get();
 
-                        int needed = width * rows * dz;
-                        if (needed > slab.length) {
+                        // Puffergröße bleibt "echte" Elemente
+                        final int neededElemsForSlab = width * rows * dz;
+                        if (neededElemsForSlab > slab.length) {
                             throw new IllegalArgumentException("slab has wrong size");
                         }
                         kernel.bindOutput(slab);
 
+                        // Lokale Parameter (wie im Seq-Backend)
                         kernel.setParameters(
                                 x0,
-                                y0 + finalYStart * f,           // world-space Y offset
-                                z0 + finalZStart * f,           // world-space Z offset
-                                width, rows, dz,     // local slab dims
+                                y0 + finalYStart * f,
+                                z0 + finalZStart * f,
+                                width, rows, dz,
                                 f,
-                                0                          // base=0 inside slab
+                                0 // base innerhalb des Slabs
                         );
 
-                        kernel.setExecutionMode(Kernel.EXECUTION_MODE.SEQ);
-                        kernel.execute(Range.create(needed, 1));
+                        // WICHTIG: globale Range = Vektor-Elemente, nicht echte Elemente
+                        final int elemsToCompute = Wv * rows * dz;
 
-                        // Copy slab back into the big result (z-slice by z-slice)
+                        kernel.setExecutionMode(Kernel.EXECUTION_MODE.SEQ); // jeder Task läuft sequenziell
+                        kernel.execute(Range.create(elemsToCompute, 1));
+
+                        // Slab -> result zurückkopieren (nur width*rows echte Werte je z-Schicht)
                         final int rowStride = width * rows;
                         for (int z = 0; z < dz; z++) {
                             final int src = z * rowStride;
@@ -79,9 +87,9 @@ public class CPUJavaJtpBackend extends CPUJavaNoiseBackend {
                 }
             }
 
-            for (int i = 0; i < futures.size(); i++) {
+            for (Future<?> ftr : futures) {
                 try {
-                    futures.get(i).get();
+                    ftr.get();
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 } catch (ExecutionException e) {
@@ -89,15 +97,26 @@ public class CPUJavaJtpBackend extends CPUJavaNoiseBackend {
                 }
             }
         } else {
+            // Direkt in das Zielarray schreiben
             kernel.bindOutput(result);
             kernel.setExecutionMode(executionMode);
+
             for (int zStart = 0; zStart < depth; zStart += slabDepth) {
-                int dz = Math.min(slabDepth, depth - zStart);
-                int slice = plane * dz;
-                Range range = Range.create(slice); // keine local size im JTP
-                kernel.setParameters(x0, y0, z0 + zStart * f, width, height, dz, f, zStart * plane);
-                kernel.setExecutionMode(executionMode);
-                kernel.execute(range);
+                final int dz = Math.min(slabDepth, depth - zStart);
+
+                // Vector-global size für diesen z-Block
+                final int global = Wv * height * dz;
+
+                // base zeigt in das große Zielarray auf die erste Schicht dieses Blocks
+                kernel.setParameters(
+                        x0, y0, z0 + zStart * f,
+                        width, height, dz,
+                        f,
+                        zStart * plane
+                );
+
+                // im JTP-Mode keine lokale Größe
+                kernel.execute(Range.create(global));
             }
         }
     }
