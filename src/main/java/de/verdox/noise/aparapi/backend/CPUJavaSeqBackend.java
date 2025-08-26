@@ -31,6 +31,9 @@ public class CPUJavaSeqBackend extends CPUJavaNoiseBackend {
     @Override
     public void generate1D(float x0, float y0, float z0, float f) {
         final int plane = width * height;
+        final int L = vectorized ? HardwareUtil.getVectorLaneLength() : 1;
+        final int Wv = vectorized ? (width + L - 1) / L : width;
+
         if (optimizeCache) {
             kernel.setExecutionMode(executionMode);
 
@@ -40,41 +43,43 @@ public class CPUJavaSeqBackend extends CPUJavaNoiseBackend {
                 for (int yStart = 0; yStart < height; yStart += rowsPerTask) {
                     final int rows = Math.min(rowsPerTask, height - yStart);
 
-                    // 3) Kernel auf den kleinen Ausschnitt loslassen
-                    //    Achtung: 1D-Kernel decodiert i -> x,y,z aus width/height/depth,
-                    //    also geben wir height=rows, depth=dz und base=0.
+                    // Slab vorbereiten
                     Arrays.fill(cacheSlab, 0);
                     kernel.bindOutput(cacheSlab);
+
+                    // Lokale Dimensionen an den Kernel geben
                     kernel.setParameters(
                             x0,
-                            y0 + yStart * f,       // Y-Offset in Weltkoords
-                            z0 + zStart * f,       // Z-Offset in Weltkoords
-                            width, rows, dz,       // lokale Dimensionen des Slabs
+                            y0 + yStart * f,      // Y-Offset in Weltkoords
+                            z0 + zStart * f,      // Z-Offset in Weltkoords
+                            width, rows, dz,      // lokale Slab-Dims (Breite bleibt UNGEPUFFERT)
                             f,
-                            0                      // base=0, weil slab nur diesen Block enthält
+                            0                     // base=0 (Slab-only)
                     );
 
-                    final int elems = width * rows * dz;
-                    kernel.execute(Range.create(elems, 1)); // JTP: keine local size
+                    // WICHTIG: bei vectorized = Wv * rows * dz  (sonst: width * rows * dz)
+                    final int elems = Wv * rows * dz;
+                    kernel.execute(Range.create(elems, 1)); // 1D-NDRange
 
-                    // 4) Slab zurückkopieren: Scheibe für Scheibe (pro z)
+                    // Slab zurückkopieren (nur die realen 'width' Elemente je Zeile)
                     final int rowStride = width * rows; // Elemente pro z-Schicht im Slab
                     for (int z = 0; z < dz; z++) {
                         final int src = z * rowStride;
                         final int dst = (zStart + z) * plane + yStart * width;
                         System.arraycopy(cacheSlab, src, result, dst, rowStride);
                     }
-
                 }
             }
-        }
-        else {
+        } else {
+            // Direkt in das Zielarray schreiben
             kernel.bindOutput(result);
-            int slice = plane * depth;
-            Range range = Range.create(slice, 1);
             kernel.setParameters(x0, y0, z0, width, height, depth, f, 0);
             kernel.setExecutionMode(executionMode);
-            kernel.execute(range);
+
+            // global size: vectorized => Wv * height * depth ; sonst plane * depth
+            final int global = Wv * height * depth;
+            System.out.println("W: " + Wv + ", H: " + height + ", D: " + depth+" -> Range: "+Range.create(global, 1));
+            kernel.execute(Range.create(global, 1));
         }
     }
 

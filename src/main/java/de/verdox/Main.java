@@ -13,7 +13,7 @@ public class Main {
 
     public static void main(String[] args) throws IOException {
         float[] result = new float[size * size * size];
-        boolean optimizeCache = true;
+        boolean optimizeCache = false;
 
         NoiseBackend gpu = NoiseBackendFactory.firstGPU(result, size, size, size);
         NoiseBackend cpuParallelScalar = NoiseBackendFactory.cpuScalarParallel(optimizeCache, result, size, size, size);
@@ -25,7 +25,7 @@ public class Main {
         HardwareUtil.printCPU();
 
 
-        NoiseBackend backend = gpu;
+        NoiseBackend backend = cpuParallelVectorized;
 
         NoiseEngine3D engine = new NoiseEngine3D(backend);
         backend.logSetup();

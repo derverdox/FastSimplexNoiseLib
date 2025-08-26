@@ -1,5 +1,6 @@
 package de.verdox.util;
 
+import jdk.incubator.vector.FloatVector;
 import oshi.SystemInfo;
 import oshi.hardware.CentralProcessor;
 
@@ -10,6 +11,14 @@ public class HardwareUtil {
 
     public static int getPhysicalProcessorCount() {
         return new SystemInfo().getHardware().getProcessor().getPhysicalProcessorCount();
+    }
+
+    public static void getAmountGPUCores() {
+        SystemInfo si = new SystemInfo();
+    }
+
+    public static int getVectorLaneLength() {
+        return FloatVector.SPECIES_PREFERRED.length();
     }
 
     public static void printCPU() {

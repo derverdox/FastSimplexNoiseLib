@@ -1,3 +1,18 @@
+CPU: i7-14700HX (Raptor Lake-HX)
+> Cores: 20C (8P+12E) / 28T (P-Base 2.1 GHz, Turbo bis 5.5 GHz)
+> L1 Cache: ≈ 1.8 MB gesamt (plattformweit, Summe pro Core)
+> L2 Cache: ≈ 28 MB gesamt
+> L3 Cache: 33 MB (Intel Smart Cache)
+> SIMD: AVX2 + FMA (kein AVX-512 auf HX-Mobilplattformen)
+> RAM: 2×16 GB DDR5-5600 (Dual-Channel)
+> Theoretische Bandbreite: ≈ 89.6 GB/s (5600 MT/s × 8 B × 2 Kanäle)
+
+GPU: GeForce RTX 4060 Laptop
+> Shader-Cores: 3072 CUDA
+> VRAM: 8 GB GDDR6, 128-Bit
+> Typische Bandbreite: ≈ 256 GB/s (128-Bit @ 16 Gb/s effektiv)
+
+
 Benchmark                     (backend)  (cacheOptimized)         (shape)  (vectorized)   Mode  Cnt      Score      Error  Units
 CPUNoiseBenchJmh.benchNoise  SEQUENTIAL              true        16x16x16          true  thrpt   20   6875,138 ±  101,199  ops/s
 CPUNoiseBenchJmh.benchNoise  SEQUENTIAL              true        16x16x16         false  thrpt   20   7002,953 ±   20,840  ops/s
