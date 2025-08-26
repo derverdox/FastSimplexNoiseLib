@@ -1,0 +1,71 @@
+Specs:
+CPU: I7_4720HQ
+- Cores: 4C / 8T (Base: 2.6 Ghz, Turbo: 3.6Ghz)
+- L1 Cache: 4 x (32kB Data + 32kB Instruction)
+- L2 Cache: 4 x 256kb
+- L3 Cache: 6MB (shared)
+- SIMD: AVX2 (8x32bit: 256-Bit)
+GPU: GTX 960M
+- Shader-Cores: 640 (CUDA) (Base 1096Mhz, Turbo: 1176Mhz)
+- VRAM: 2GB
+- Bandwidth: 80GB/s
+RAM: 16GB DDR3L
+- 2x8GB (Base: 1600Mhz)
+- Bandwidth: 25GB/s
+
+
+Benchmark                     (backend)  (cacheOptimized)      (shape)  (vectorized)   Mode  Cnt     Score     Error  Units
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL              true     16x16x16          true  thrpt   20  2369,517 ±  73,583  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL              true     16x16x16         false  thrpt   20  3289,842 ±  65,205  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL              true     32x32x32          true  thrpt   20   307,525 ±   8,799  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL              true     32x32x32         false  thrpt   20   427,647 ±   6,107  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL              true     64x64x64          true  thrpt   20    38,620 ±   1,036  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL              true     64x64x64         false  thrpt   20    53,842 ±   0,151  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL              true  128x128x128          true  thrpt   20     4,680 ±   0,129  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL              true  128x128x128         false  thrpt   20     6,792 ±   0,147  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL              true  256x256x256          true  thrpt   20     0,556 ±   0,048  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL              true  256x256x256         false  thrpt   20     0,791 ±   0,029  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL              true  512x512x512          true  thrpt   20     0,077 ±   0,001  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL              true  512x512x512         false  thrpt   20     0,108 ±   0,001  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL             false     16x16x16          true  thrpt   20  2503,500 ±  56,053  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL             false     16x16x16         false  thrpt   20  3587,669 ±  12,944  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL             false     32x32x32          true  thrpt   20   320,567 ±   3,283  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL             false     32x32x32         false  thrpt   20   427,344 ±   9,192  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL             false     64x64x64          true  thrpt   20    38,398 ±   1,213  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL             false     64x64x64         false  thrpt   20    54,078 ±   0,501  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL             false  128x128x128          true  thrpt   20     4,931 ±   0,099  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL             false  128x128x128         false  thrpt   20     6,910 ±   0,060  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL             false  256x256x256          true  thrpt   20     0,609 ±   0,011  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL             false  256x256x256         false  thrpt   20     0,842 ±   0,006  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL             false  512x512x512          true  thrpt   20     0,077 ±   0,001  ops/s
+CPUNoiseBenchJmh.benchNoise  SEQUENTIAL             false  512x512x512         false  thrpt   20     0,108 ±   0,001  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL              true     16x16x16          true  thrpt   20  1851,273 ±  75,481  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL              true     16x16x16         false  thrpt   20  2236,627 ±  66,000  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL              true     32x32x32          true  thrpt   20   281,302 ±   1,095  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL              true     32x32x32         false  thrpt   20   394,483 ±   2,165  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL              true     64x64x64          true  thrpt   20    59,502 ±   1,598  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL              true     64x64x64         false  thrpt   20   101,965 ±   1,464  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL              true  128x128x128          true  thrpt   20     7,748 ±   0,104  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL              true  128x128x128         false  thrpt   20    20,473 ±   0,929  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL              true  256x256x256          true  thrpt   20     0,971 ±   0,008  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL              true  256x256x256         false  thrpt   20     2,517 ±   0,067  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL              true  512x512x512          true  thrpt   20     0,123 ±   0,001  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL              true  512x512x512         false  thrpt   20     0,313 ±   0,003  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL             false     16x16x16          true  thrpt   20  3433,173 ±  67,184  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL             false     16x16x16         false  thrpt   20  7248,274 ± 185,572  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL             false     32x32x32          true  thrpt   20   467,476 ±  19,824  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL             false     32x32x32         false  thrpt   20  1361,582 ±  46,158  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL             false     64x64x64          true  thrpt   20    60,138 ±   1,059  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL             false     64x64x64         false  thrpt   20   191,128 ±   2,025  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL             false  128x128x128          true  thrpt   20     7,575 ±   0,136  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL             false  128x128x128         false  thrpt   20    24,818 ±   0,712  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL             false  256x256x256          true  thrpt   20     0,939 ±   0,019  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL             false  256x256x256         false  thrpt   20     3,076 ±   0,129  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL             false  512x512x512          true  thrpt   20     0,114 ±   0,005  ops/s
+CPUNoiseBenchJmh.benchNoise    PARALLEL             false  512x512x512         false  thrpt   20     0,387 ±   0,005  ops/s
+GPUNoiseBenchJmh.benchNoise         N/A               N/A     16x16x16           N/A  thrpt   20  5555,471 ± 357,980  ops/s
+GPUNoiseBenchJmh.benchNoise         N/A               N/A     32x32x32           N/A  thrpt   20  4321,943 ± 178,304  ops/s
+GPUNoiseBenchJmh.benchNoise         N/A               N/A     64x64x64           N/A  thrpt   20  2012,305 ±  42,336  ops/s
+GPUNoiseBenchJmh.benchNoise         N/A               N/A  128x128x128           N/A  thrpt   20   369,260 ±   2,199  ops/s
+GPUNoiseBenchJmh.benchNoise         N/A               N/A  256x256x256           N/A  thrpt   20    51,109 ±   0,074  ops/s
+GPUNoiseBenchJmh.benchNoise         N/A               N/A  512x512x512           N/A  thrpt   20     4,101 ±   0,045  ops/s

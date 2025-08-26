@@ -16,7 +16,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @Fork(2)
 public class GPUNoiseBenchJmh {
     // --- Variante A: Größe als Tripel-String (am bequemsten) ---
-    @Param({"16x16x16", "32x32x32", "64x64x64", "128x128x128", "256x256x256", "512x512x512", "1024x1024x1024"})
+    @Param({"16x16x16", "32x32x32", "64x64x64", "128x128x128", "256x256x256", "512x512x512"})
     public String shape; // wird in @Setup geparst
 
     // Interne, aus 'shape' geparste Dimensionen:

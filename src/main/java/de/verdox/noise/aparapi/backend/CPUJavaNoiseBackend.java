@@ -31,7 +31,6 @@ public abstract class CPUJavaNoiseBackend extends AparapiNoiseBackend<AbstractSi
     protected AbstractSimplexNoise3DAparapiKernel setup() {
         if (optimizeCache) {
             int threads = physicalProcessors;
-            System.out.println(physicalProcessors);
             long l3 = HardwareUtil.readCaches().l3.sizeBytes();
             this.slabDepth = pickDzFor1D(width, height, depth, Float.BYTES, threads, l3);
             this.rowsPerTask = pickRowsPerTaskFor1DWithDz(width, slabDepth, Float.BYTES, threads, l3);

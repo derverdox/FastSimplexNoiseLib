@@ -4,7 +4,6 @@ import com.aparapi.Kernel;
 import com.aparapi.Range;
 import com.aparapi.device.Device;
 import de.verdox.noise.aparapi.kernel.AbstractSimplexNoise3DAparapiKernel;
-import de.verdox.util.FormatUtil;
 import de.verdox.util.HardwareUtil;
 
 import java.util.Arrays;

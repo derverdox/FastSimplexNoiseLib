@@ -6,20 +6,20 @@ public class ScalarSimplexNoise3DKernel1D extends AbstractScalarSimplexNoise3DAp
         int i = getGlobalId(0);
 
         // argWidth*argHeight*argDepth == plane*dz pro Slab
-        int sliceElems = argWidth * argHeight * argDepth;
-        if (i >= sliceElems) return;                 // Padding-Guard
+        int sliceElems = gridWidth * gridHeight * gridDepth;
+        if (i >= sliceElems) return;
 
-        int idx = argBase + i;
-        if (idx < 0 || idx >= result.length) return; // Sicherheits-Guard
+        int idx = baseIndex + i;
+        if (idx < 0 || idx >= noiseResult.length) return;
 
-        int x = i % argWidth;
-        int y = (i / argWidth) % argHeight;
-        int z = i / (argWidth * argHeight);
+        int x = i % gridWidth;
+        int y = (i / gridWidth) % gridHeight;
+        int z = i / (gridWidth * gridHeight);
 
-        result[idx] = scalarNoise(
-                argX + x * argFrequency,
-                argY + y * argFrequency,
-                argZ + z * argFrequency
+        noiseResult[idx] = cpuScalarNoiseLookup(
+                baseX + x * frequency,
+                baseY + y * frequency,
+                baseZ + z * frequency
         );
     }
 }

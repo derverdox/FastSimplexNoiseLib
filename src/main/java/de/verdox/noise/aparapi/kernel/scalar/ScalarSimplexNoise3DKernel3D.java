@@ -6,11 +6,11 @@ public class ScalarSimplexNoise3DKernel3D extends AbstractScalarSimplexNoise3DAp
         int x = getGlobalId(0);
         int y = getGlobalId(1);
         int z = getGlobalId(2);
-        int li = (z * argHeight + y) * argWidth + x;
-        int idx = argBase + li;
+        int li = (z * gridHeight + y) * gridWidth + x;
+        int idx = baseIndex + li;
 
-        result[idx] = scalarNoise(argX + x * argFrequency,
-                argY + y * argFrequency,
-                argZ + z * argFrequency);
+        noiseResult[idx] = scalarNoiseAluOnly(baseX + x * frequency,
+                baseY + y * frequency,
+                baseZ + z * frequency);
     }
 }
