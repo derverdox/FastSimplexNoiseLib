@@ -17,17 +17,17 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class CPUNoiseBenchJmh {
 
     // --- Backend- und Lauf-Parameter ---
-    @Param({/*"SEQUENTIAL", */"PARALLEL"})
+    @Param({"SEQUENTIAL", "PARALLEL"})
     public String backend;
 
     // --- Variante A: Größe als Tripel-String (am bequemsten) ---
     @Param({"16x16x16", "32x32x32", "64x64x64", "128x128x128", "256x256x256", "512x512x512", "1024x1024x1024"})
     public String shape; // wird in @Setup geparst
 
-    @Param({"true"/*, "false"*/})
+    @Param({"true", "false"})
     public boolean vectorized;
 
-    @Param({/*"true", */"false"})
+    @Param({"true", "false"})
     public boolean cacheOptimized;
 
     // Interne, aus 'shape' geparste Dimensionen:
