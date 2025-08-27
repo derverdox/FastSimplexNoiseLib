@@ -1,4 +1,4 @@
-package de.verdox.noise.aparapi.backend;
+package de.verdox.noise.aparapi.backend.cpu;
 
 import com.aparapi.Kernel;
 import com.aparapi.Range;

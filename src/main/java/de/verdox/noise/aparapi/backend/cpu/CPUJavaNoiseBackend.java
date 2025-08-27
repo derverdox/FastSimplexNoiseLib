@@ -1,6 +1,7 @@
-package de.verdox.noise.aparapi.backend;
+package de.verdox.noise.aparapi.backend.cpu;
 
 import com.aparapi.device.Device;
+import de.verdox.noise.aparapi.backend.AparapiNoiseBackend;
 import de.verdox.noise.aparapi.kernel.AbstractSimplexNoise3DAparapiKernel;
 import de.verdox.noise.aparapi.kernel.scalar.ScalarSimplexNoise3DKernel1D;
 import de.verdox.noise.aparapi.kernel.scalar.VectorizedSimplexNoise3DKernel1D;

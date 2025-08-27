@@ -1,14 +1,14 @@
-package de.verdox.noise.aparapi.backend;
+package de.verdox.noise.aparapi.backend.cpu;
 
 import com.aparapi.Kernel;
 import com.aparapi.device.OpenCLDevice;
+import de.verdox.noise.aparapi.backend.gpu.OldGPUOpenCLBackend;
 import de.verdox.noise.aparapi.kernel.scalar.AbstractScalarSimplexNoise3DAparapiKernel;
-import de.verdox.noise.aparapi.kernel.scalar.ScalarSimplexNoise3DKernel1D;
 import de.verdox.util.FormatUtil;
 
 import java.util.Arrays;
 
-public class CPUOpenCLBackend extends GPUOpenCLBackend {
+public class CPUOpenCLBackend extends OldGPUOpenCLBackend {
     private final OpenCLDevice clCpu;
 
     public CPUOpenCLBackend(OpenCLDevice clCpu, float[] result, int w, int h, int d) {

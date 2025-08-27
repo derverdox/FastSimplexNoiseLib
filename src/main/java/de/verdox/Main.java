@@ -9,13 +9,13 @@ import java.io.IOException;
 
 public class Main {
 
-    private static final int size = 64;
+    private static final int size = 512;
 
     public static void main(String[] args) throws IOException {
         float[] result = new float[size * size * size];
         boolean optimizeCache = false;
 
-        NoiseBackend gpu = NoiseBackendFactory.firstGPU(result, size, size, size);
+        NoiseBackend gpu = NoiseBackendFactory.firstGPU(true, result, size, size, size);
         NoiseBackend cpuParallelScalar = NoiseBackendFactory.cpuScalarParallel(optimizeCache, result, size, size, size);
         NoiseBackend cpuSeqScalar = NoiseBackendFactory.cpuScalarSeq(optimizeCache, result, size, size, size);
 
@@ -25,7 +25,7 @@ public class Main {
         HardwareUtil.printCPU();
 
 
-        NoiseBackend backend = cpuParallelVectorized;
+        NoiseBackend backend = gpu;
 
         NoiseEngine3D engine = new NoiseEngine3D(backend);
         backend.logSetup();

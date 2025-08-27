@@ -24,10 +24,10 @@ public class CPUNoiseBenchJmh {
     @Param({"16x16x16", "32x32x32", "64x64x64", "128x128x128", "256x256x256", "512x512x512"})
     public String shape; // wird in @Setup geparst
 
-    @Param({"true", "false"})
+    @Param({/*"true", */"false"})
     public boolean vectorized;
 
-    @Param({"true", "false"})
+    @Param({/*"true", */"false"})
     public boolean cacheOptimized;
 
     private int nx, ny, nz;
