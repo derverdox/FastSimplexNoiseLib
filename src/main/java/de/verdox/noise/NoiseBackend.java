@@ -29,9 +29,15 @@ public abstract class NoiseBackend {
         this.depth = depth;
     }
 
+    public float[] getResult() {
+        return result;
+    }
+
     public abstract void dispose();
 
     public abstract void generate(float x0, float y0, float z0, float frequency);
+
+    public abstract void generate(float x0, float y0, float frequency);
 
     public abstract void logSetup();
 

@@ -1,7 +1,7 @@
 package de.verdox;
 
 import de.verdox.noise.NoiseBackend;
-import de.verdox.noise.NoiseBackendFactory;
+import de.verdox.noise.NoiseBackendBuilder;
 import de.verdox.noise.NoiseEngine3D;
 import org.openjdk.jmh.annotations.*;
 
@@ -15,23 +15,27 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @Measurement(iterations = 10, time = 1, timeUnit = SECONDS)
 @Fork(2)
 public class CPUNoiseBenchJmh {
-
-    // --- Backend- und Lauf-Parameter ---
-    @Param({/*"SEQUENTIAL", */"PARALLEL"})
-    public String backend;
-
     // --- Variante A: Größe als Tripel-String (am bequemsten) ---
     @Param({"16x16x16", "32x32x32", "64x64x64", "128x128x128", "256x256x256", "512x512x512"})
     public String shape; // wird in @Setup geparst
 
-    @Param({/*"true", */"false"})
+    // --- Backend- und Lauf-Parameter ---
+    @Param({"SEQUENTIAL", "PARALLELISM_CORES", "PARALLELISM_THREADS"})
+    public String parallelismMode;
+
+    @Param({"ALU_ONLY", "LOOKUP"})
+    public String noiseCalc;
+
+    @Param({"true", "false"})
     public boolean vectorized;
 
-    @Param({/*"true", */"false"})
+    @Param({"true", "false"})
     public boolean cacheOptimized;
 
+    @Param({"true", "false"})
+    public boolean oneDimensionalIndexing;
+
     private int nx, ny, nz;
-    private float[] result;
     private NoiseBackend noiseBackend;
     private NoiseEngine3D engine;
 
@@ -49,11 +53,17 @@ public class CPUNoiseBenchJmh {
             throw new IllegalArgumentException("shape must contain integers: " + shape, e);
         }
 
-        result = new float[nx * ny * nz];
-        noiseBackend = switch (CPUBackend.valueOf(backend)) {
-            case PARALLEL -> NoiseBackendFactory.cpuParallel(vectorized, cacheOptimized, result, nx, ny, nz);
-            case SEQUENTIAL -> NoiseBackendFactory.cpuSeq(vectorized, cacheOptimized, result, nx, ny, nz);
-        };
+        NoiseBackendBuilder.CPUParallelismMode mode = NoiseBackendBuilder.CPUParallelismMode.valueOf(parallelismMode);
+        NoiseBackendBuilder.NoiseCalculationMode calculationMode = NoiseBackendBuilder.NoiseCalculationMode.valueOf(noiseCalc);
+        noiseBackend = NoiseBackendBuilder.cpu()
+                .withSize3D(nx)
+                .withParallelismMode(mode)
+                .preventRamUsage(cacheOptimized)
+                .vectorize(vectorized)
+                .with1DIndexing(oneDimensionalIndexing)
+                .withNoiseCalculationMode(calculationMode)
+                .build()
+        ;
         engine = new NoiseEngine3D(noiseBackend);
         noiseBackend.logSetup();
     }
@@ -61,7 +71,7 @@ public class CPUNoiseBenchJmh {
     @Benchmark
     public float[] benchNoise() {
         engine.computeNoise(0, 0, 0, 0.009f);
-        return result;
+        return noiseBackend.getResult();
     }
 
     @TearDown(Level.Trial)

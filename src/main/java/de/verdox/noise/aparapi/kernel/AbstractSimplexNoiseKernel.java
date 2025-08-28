@@ -1,8 +1,9 @@
 package de.verdox.noise.aparapi.kernel;
 
 import com.aparapi.Kernel;
+import de.verdox.noise.NoiseBackendBuilder;
 
-public abstract class AbstractSimplexNoise3DAparapiKernel extends Kernel {
+public abstract class AbstractSimplexNoiseKernel extends Kernel {
     public static final float SKEWNESS_FACTOR = 0.3333333333333333f;
     public static final float UNSKEWNESS_FACTOR = 0.16666666666666666f;
     public static final float UNSKEWNESS_FACTOR_2 = 2 * UNSKEWNESS_FACTOR;
@@ -11,6 +12,8 @@ public abstract class AbstractSimplexNoise3DAparapiKernel extends Kernel {
 
     public float baseX, baseY, baseZ, frequency;
     public int gridWidth, gridHeight, gridDepth, baseIndex;
+
+    public final int noiseCalcMode;
 
     public float[] noiseResult = {0};
     @Constant
@@ -70,11 +73,11 @@ public abstract class AbstractSimplexNoise3DAparapiKernel extends Kernel {
             235, 249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106, 157, 184, 84, 204, 176, 115, 121, 50, 45, 127, 4,
             150, 254, 138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180};
 
-    public AbstractSimplexNoise3DAparapiKernel() {
+    public AbstractSimplexNoiseKernel(NoiseBackendBuilder.NoiseCalculationMode noiseCalculationMode) {
         for (int i = 0; i < 512; i++) {
             permMod12[i] = (short) (permutationTable[i] % 12);
         }
-
+        this.noiseCalcMode = noiseCalculationMode.ordinal();
     }
 
     public void bindOutput(float[] out) {
@@ -85,7 +88,7 @@ public abstract class AbstractSimplexNoise3DAparapiKernel extends Kernel {
         return noiseResult;
     }
 
-    public void setParameters(float x0, float y0, float z0, int width, int height, int depth, float frequency, int i) {
+    public void setParameters(float x0, float y0, float z0, int width, int height, int depth, float frequency, int baseIndex) {
         this.baseX = x0;
         this.baseY = y0;
         this.baseZ = z0;
@@ -93,7 +96,7 @@ public abstract class AbstractSimplexNoise3DAparapiKernel extends Kernel {
         this.gridHeight = height;
         this.gridDepth = depth;
         this.frequency = frequency;
-        this.baseIndex = i;
+        this.baseIndex = baseIndex;
     }
 
     public float cpuScalarNoiseLookup(float xin, float yin, float zin) {
