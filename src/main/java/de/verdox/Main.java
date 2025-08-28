@@ -26,6 +26,7 @@ public class Main {
         long end = System.nanoTime();
 
 
+
         javax.imageio.ImageIO.write(backend.topLayerToGrayscale(), "png", new java.io.File("heightmap.png"));
     }
 }

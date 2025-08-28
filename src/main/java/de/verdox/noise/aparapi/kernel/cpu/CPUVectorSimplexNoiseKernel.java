@@ -48,6 +48,7 @@ public abstract class CPUVectorSimplexNoiseKernel extends AbstractSimplexNoiseKe
 
     @Override
     public void setParameters(float x0, float y0, float z0, int width, int height, int depth, float frequency, int baseIndex) {
+        super.setParameters(x0, y0, z0, width, height, depth, frequency, baseIndex);
         V_FREQ = FloatVector.broadcast(SF, frequency);
         V_X0 = FloatVector.broadcast(SF, baseX);
         V_Y0 = FloatVector.broadcast(SF, baseY);
@@ -246,8 +247,151 @@ public abstract class CPUVectorSimplexNoiseKernel extends AbstractSimplexNoiseKe
 
             @Override
             public void run() {
+                final int L = SF.length();
+                final int W = gridWidth, H = gridHeight, D = gridDepth;
+                final int xb = getGlobalId(0);     // Vektor-„Kachel“ entlang X (à L Lanes)
+                final int y  = getGlobalId(1);
+                final int z  = getGlobalId(2);
 
+                if (y >= H || z >= D) return;
+
+                final int x = xb * L;
+                if (x >= W) return;                // kompletter Kachel außerhalb → nichts zu tun
+
+                // Linearer Basisindex der (z,y)-Zeile im großen Zielpuffer (x-major)
+                final int base = baseIndex + (z * H + y) * W;
+
+                // Eingangskoordinaten als Vektoren (x: Lane-Offset, y/z: skalar)
+                final FloatVector vXin = V_X0.add(FloatVector.broadcast(SF, (float) x).add(V_LANE).mul(V_FREQ));
+                final FloatVector vYin = V_Y0.add(FloatVector.broadcast(SF, (float) y).mul(V_FREQ));
+                final FloatVector vZin = V_Z0.add(FloatVector.broadcast(SF, (float) z).mul(V_FREQ));
+
+                // Skew / Unskew
+                final FloatVector s  = vXin.add(vYin).add(vZin).mul(V_1_3);
+                final FloatVector xiS = vXin.add(s);
+                final FloatVector yiS = vYin.add(s);
+                final FloatVector ziS = vZin.add(s);
+
+                final IntVector i = floorV(xiS);
+                final IntVector j = floorV(yiS);
+                final IntVector k = floorV(ziS);
+
+                final FloatVector iF = (FloatVector) i.convert(VectorOperators.I2F, 0);
+                final FloatVector jF = (FloatVector) j.convert(VectorOperators.I2F, 0);
+                final FloatVector kF = (FloatVector) k.convert(VectorOperators.I2F, 0);
+
+                final FloatVector t  = iF.add(jF).add(kF).mul(V_1_6);
+                final FloatVector x0 = vXin.sub(iF).add(t);
+                final FloatVector y0 = vYin.sub(jF).add(t);
+                final FloatVector z0 = vZin.sub(kF).add(t);
+
+                // Simplex-Eckenwahl (wie in 1D-Version)
+                VectorMask<Float> m_x_ge_y = x0.compare(VectorOperators.GE, y0);
+                VectorMask<Float> m_y_ge_z = y0.compare(VectorOperators.GE, z0);
+                VectorMask<Float> m_x_ge_z = x0.compare(VectorOperators.GE, z0);
+                VectorMask<Float> m_y_lt_z = y0.compare(VectorOperators.LT, z0);
+                VectorMask<Float> m_x_lt_z = x0.compare(VectorOperators.LT, z0);
+
+                IntVector i1 = I0, j1 = I0, k1 = I0;
+                IntVector i2 = I0, j2 = I0, k2 = I0;
+
+                VectorMask<Float> c1 = m_x_ge_y.and(m_y_ge_z);
+                i1 = i1.blend(I1, c1.cast(SI));
+                i2 = i2.blend(I1, c1.cast(SI));
+                j2 = j2.blend(I1, c1.cast(SI));
+
+                VectorMask<Float> c2 = m_x_ge_y.and(m_x_ge_z).and(m_y_ge_z.not());
+                i1 = i1.blend(I1, c2.cast(SI));
+                i2 = i2.blend(I1, c2.cast(SI));
+                k2 = k2.blend(I1, c2.cast(SI));
+
+                VectorMask<Float> c3 = m_x_ge_y.and(m_x_ge_z.not());
+                k1 = k1.blend(I1, c3.cast(SI));
+                i2 = i2.blend(I1, c3.cast(SI));
+                k2 = k2.blend(I1, c3.cast(SI));
+
+                VectorMask<Float> c4 = m_x_ge_y.not().and(m_y_lt_z);
+                k1 = k1.blend(I1, c4.cast(SI));
+                j2 = j2.blend(I1, c4.cast(SI));
+                k2 = k2.blend(I1, c4.cast(SI));
+
+                VectorMask<Float> c5 = m_x_ge_y.not().and(m_y_lt_z.not()).and(m_x_lt_z);
+                j1 = j1.blend(I1, c5.cast(SI));
+                j2 = j2.blend(I1, c5.cast(SI));
+                k2 = k2.blend(I1, c5.cast(SI));
+
+                VectorMask<Float> c6 = m_x_ge_y.not().and(m_y_lt_z.not()).and(m_x_lt_z.not());
+                j1 = j1.blend(I1, c6.cast(SI));
+                i2 = i2.blend(I1, c6.cast(SI));
+                j2 = j2.blend(I1, c6.cast(SI));
+
+                final FloatVector i1F = (FloatVector) i1.convert(VectorOperators.I2F, 0);
+                final FloatVector j1F = (FloatVector) j1.convert(VectorOperators.I2F, 0);
+                final FloatVector k1F = (FloatVector) k1.convert(VectorOperators.I2F, 0);
+                final FloatVector i2F = (FloatVector) i2.convert(VectorOperators.I2F, 0);
+                final FloatVector j2F = (FloatVector) j2.convert(VectorOperators.I2F, 0);
+                final FloatVector k2F = (FloatVector) k2.convert(VectorOperators.I2F, 0);
+
+                final FloatVector x1 = x0.sub(i1F).add(V_1_6);
+                final FloatVector y1 = y0.sub(j1F).add(V_1_6);
+                final FloatVector z1 = z0.sub(k1F).add(V_1_6);
+
+                final FloatVector x2 = x0.sub(i2F).add(V_2_6);
+                final FloatVector y2 = y0.sub(j2F).add(V_2_6);
+                final FloatVector z2 = z0.sub(k2F).add(V_2_6);
+
+                final FloatVector x3 = x0.sub(V1).add(V_3_6);
+                final FloatVector y3 = y0.sub(V1).add(V_3_6);
+                final FloatVector z3 = z0.sub(V1).add(V_3_6);
+
+                final IntVector ii = i.and(I255), jj = j.and(I255), kk = k.and(I255);
+
+                final IntVector nk0 = intNoiseV(kk);
+                final IntVector nk1 = intNoiseV(kk.add(k1));
+                final IntVector nk2 = intNoiseV(kk.add(k2));
+                final IntVector nk3 = intNoiseV(kk.add(1));
+
+                final IntVector nj0 = intNoiseV(jj.add(nk0));
+                final IntVector nj1 = intNoiseV(jj.add(j1).add(nk1));
+                final IntVector nj2 = intNoiseV(jj.add(j2).add(nk2));
+                final IntVector nj3 = intNoiseV(jj.add(1).add(nk3));
+
+                IntVector gi0 = mod12Fast(intNoiseV(ii.add(nj0)));
+                IntVector gi1 = mod12Fast(intNoiseV(ii.add(i1).add(nj1)));
+                IntVector gi2 = mod12Fast(intNoiseV(ii.add(i2).add(nj2)));
+                IntVector gi3 = mod12Fast(intNoiseV(ii.add(1).add(nj3)));
+
+                final FloatVector r0 = x0.fma(x0, y0.fma(y0, z0.mul(z0)));
+                final FloatVector r1 = x1.fma(x1, y1.fma(y1, z1.mul(z1)));
+                final FloatVector r2 = x2.fma(x2, y2.fma(y2, z2.mul(z2)));
+                final FloatVector r3 = x3.fma(x3, y3.fma(y3, z3.mul(z3)));
+
+                final FloatVector t0 = V_0_6.sub(r0).max(V0);
+                final FloatVector t1 = V_0_6.sub(r1).max(V0);
+                final FloatVector t2 = V_0_6.sub(r2).max(V0);
+                final FloatVector t3 = V_0_6.sub(r3).max(V0);
+
+                final FloatVector tt0_4 = t0.mul(t0).mul(t0.mul(t0));
+                final FloatVector tt1_4 = t1.mul(t1).mul(t1.mul(t1));
+                final FloatVector tt2_4 = t2.mul(t2).mul(t2.mul(t2));
+                final FloatVector tt3_4 = t3.mul(t3).mul(t3.mul(t3));
+
+                FloatVector n0 = tt0_4.mul(dotFromHashCorner(gi0, x0, y0, z0));
+                FloatVector n1 = tt1_4.mul(dotFromHashCorner(gi1, x1, y1, z1));
+                FloatVector n2 = tt2_4.mul(dotFromHashCorner(gi2, x2, y2, z2));
+                FloatVector n3 = tt3_4.mul(dotFromHashCorner(gi3, x3, y3, z3));
+
+                final FloatVector vOut = V32.mul(n0.add(n1).add(n2).add(n3));
+
+                // Store: voll oder Tail (Maske für die letzten <L Elemente)
+                if (x + L <= W) {
+                    vOut.intoArray(noiseResult, base + x);
+                } else {
+                    VectorMask<Float> m = SF.indexInRange(0, W - x);
+                    vOut.intoArray(noiseResult, base + x, m);
+                }
             }
+
         }
     }
 

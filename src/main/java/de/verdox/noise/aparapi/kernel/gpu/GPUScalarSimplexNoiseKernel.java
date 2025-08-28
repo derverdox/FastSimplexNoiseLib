@@ -3,6 +3,7 @@ package de.verdox.noise.aparapi.kernel.gpu;
 import de.verdox.noise.NoiseBackendBuilder;
 import de.verdox.noise.aparapi.kernel.cpu.CPUScalarSimplexNoiseKernel;
 
+@Deprecated
 public abstract class GPUScalarSimplexNoiseKernel extends CPUScalarSimplexNoiseKernel {
     public GPUScalarSimplexNoiseKernel(NoiseBackendBuilder.NoiseCalculationMode noiseCalculationMode) {
         super(noiseCalculationMode);

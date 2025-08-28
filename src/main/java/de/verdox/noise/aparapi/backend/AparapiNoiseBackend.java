@@ -15,7 +15,6 @@ public abstract class AparapiNoiseBackend<KERNEL extends AbstractSimplexNoiseKer
     protected int localX, localY, localZ;
     protected int local1D;
     protected int slabDepth;
-    protected Kernel.EXECUTION_MODE executionMode;
 
     public AparapiNoiseBackend(Device preferredDevice, NoiseBackendBuilder.NoiseCalculationMode calculationMode, float[] result, int width, int height, int depth) {
         super(result, width, height, depth);
@@ -28,6 +27,11 @@ public abstract class AparapiNoiseBackend<KERNEL extends AbstractSimplexNoiseKer
         super.rebind(result, width, height, depth);
         dispose();
         this.kernel = setup();
+    }
+
+    @Override
+    public void postInit() {
+        setup();
     }
 
     protected abstract KERNEL setup();

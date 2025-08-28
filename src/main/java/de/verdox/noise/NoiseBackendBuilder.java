@@ -2,6 +2,7 @@ package de.verdox.noise;
 
 import com.aparapi.device.OpenCLDevice;
 import com.aparapi.internal.kernel.KernelManager;
+import de.verdox.noise.aparapi.backend.cpu.CPUJavaAparapiNoiseBackend;
 import de.verdox.noise.aparapi.backend.gpu.GPUAparapiNoiseBackend;
 
 public abstract class NoiseBackendBuilder<BUILDER extends NoiseBackendBuilder<BUILDER>> {
@@ -87,14 +88,15 @@ public abstract class NoiseBackendBuilder<BUILDER extends NoiseBackendBuilder<BU
 
         @Override
         public NoiseBackend build() {
-            return switch (parallelismMode) {
-                case SEQUENTIAL ->
-                        new CPUJavaSeqBackend(null, noiseCalculationMode, vectorize, preventRamUsage, result, size, size, size);
-                case PARALLELISM_CORES ->
-                        new CPUJavaJtpBackend(null, noiseCalculationMode, false, vectorize, preventRamUsage, result, size, size, size);
-                case PARALLELISM_THREADS ->
-                        new CPUJavaJtpBackend(null, noiseCalculationMode, true, vectorize, preventRamUsage, result, size, size, size);
-            };
+            NoiseBackend noiseBackend;
+            if(isPreventRamUsage()) {
+                noiseBackend = new CPUJavaAparapiNoiseBackend.CacheOnly(this, result, size, size, size);
+            }
+            else {
+                noiseBackend = new CPUJavaAparapiNoiseBackend.Simple(this, result, size, size, size);
+            }
+            noiseBackend.postInit();
+            return noiseBackend;
         }
 
         public boolean isPreventRamUsage() {
@@ -129,11 +131,14 @@ public abstract class NoiseBackendBuilder<BUILDER extends NoiseBackendBuilder<BU
 
         @Override
         public NoiseBackend build() {
+            NoiseBackend noiseBackend;
             if (useBatching) {
-                return new GPUAparapiNoiseBackend.Batched(preferredDevice, this, result, size, size, size);
+                noiseBackend = new GPUAparapiNoiseBackend.Batched(preferredDevice, this, result, size, size, size);
             } else {
-                return new GPUAparapiNoiseBackend.Simple(preferredDevice, this, result, size, size, size);
+                noiseBackend = new GPUAparapiNoiseBackend.Simple(preferredDevice, this, result, size, size, size);
             }
+            noiseBackend.postInit();
+            return noiseBackend;
         }
 
         public boolean isUseBatching() {

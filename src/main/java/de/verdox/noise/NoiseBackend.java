@@ -33,6 +33,10 @@ public abstract class NoiseBackend {
         return result;
     }
 
+    public void postInit() {
+
+    }
+
     public abstract void dispose();
 
     public abstract void generate(float x0, float y0, float z0, float frequency);

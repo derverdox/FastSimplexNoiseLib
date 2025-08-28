@@ -2,7 +2,6 @@ package de.verdox.noise.aparapi.backend.cpu;
 
 import com.aparapi.Kernel;
 import com.aparapi.Range;
-import com.aparapi.device.Device;
 import de.verdox.noise.NoiseBackendBuilder;
 import de.verdox.noise.aparapi.backend.AparapiNoiseBackend;
 import de.verdox.noise.aparapi.kernel.AbstractSimplexNoiseKernel;
@@ -22,10 +21,9 @@ public abstract class CPUJavaAparapiNoiseBackend extends AparapiNoiseBackend<Abs
     protected final NoiseBackendBuilder.CPUNoiseBackendBuilder params;
 
 
-    public CPUJavaAparapiNoiseBackend(Device preferredDevice,
-                                      NoiseBackendBuilder.CPUNoiseBackendBuilder params,
+    public CPUJavaAparapiNoiseBackend(NoiseBackendBuilder.CPUNoiseBackendBuilder params,
                                       float[] result, int width, int height, int depth) {
-        super(preferredDevice, params.getNoiseCalculationMode(), result, width, height, depth);
+        super(null, params.getNoiseCalculationMode(), result, width, height, depth);
         this.params = params;
     }
 
@@ -39,19 +37,16 @@ public abstract class CPUJavaAparapiNoiseBackend extends AparapiNoiseBackend<Abs
 
     @Override
     protected AbstractSimplexNoiseKernel createKernel() {
-        if(params.isVectorize()) {
-            if(use1DIndexing) {
+        if (params.isVectorize()) {
+            if (use1DIndexing) {
                 return new CPUVectorSimplexNoiseKernel.Simple.Noise3DIndexing1D(params.getNoiseCalculationMode());
-            }
-            else {
+            } else {
                 return new CPUVectorSimplexNoiseKernel.Simple.Noise3DIndexing3D(params.getNoiseCalculationMode());
             }
-        }
-        else {
-            if(use1DIndexing) {
+        } else {
+            if (use1DIndexing) {
                 return new CPUScalarSimplexNoiseKernel.Simple.Noise3DIndexing1D(params.getNoiseCalculationMode());
-            }
-            else {
+            } else {
                 return new CPUScalarSimplexNoiseKernel.Simple.Noise3DIndexing3D(params.getNoiseCalculationMode());
             }
         }
@@ -69,8 +64,8 @@ public abstract class CPUJavaAparapiNoiseBackend extends AparapiNoiseBackend<Abs
         protected ExecutorService cacheOptPool;
         private int maxSlabElems;
 
-        public CacheOnly(Device preferredDevice, NoiseBackendBuilder.CPUNoiseBackendBuilder params, float[] result, int width, int height, int depth) {
-            super(preferredDevice, params, result, width, height, depth);
+        public CacheOnly(NoiseBackendBuilder.CPUNoiseBackendBuilder params, float[] result, int width, int height, int depth) {
+            super(params, result, width, height, depth);
         }
 
         @Override
@@ -78,30 +73,48 @@ public abstract class CPUJavaAparapiNoiseBackend extends AparapiNoiseBackend<Abs
             int threads = threads();
             long l3 = HardwareUtil.readCaches().l3.sizeBytes();
 
-            if(use1DIndexing) {
+            if (use1DIndexing) {
+                // (dein bestehender 1D-Setup-Code bleibt unverändert)
                 this.slabDepth = pickDzFor1D(width, height, depth, Float.BYTES, threads, l3);
                 this.rowsPerTask = pickRowsPerTaskFor1DWithDz(width, slabDepth, Float.BYTES, threads, l3);
                 maxSlabElems = width * rowsPerTask * slabDepth;
 
                 cacheSlab = new float[maxSlabElems];
-                if(cacheOptPool == null) {
+                if (cacheOptPool == null) {
                     cacheOptPool = Executors.newFixedThreadPool(threads, r -> {
                         Thread t = new Thread(r);
                         t.setDaemon(true);
                         return t;
                     });
                 }
+                this.cacheOptKernels = ThreadLocal.withInitial(this::createKernel);
+                this.slabsPerThread = ThreadLocal.withInitial(() -> new float[maxSlabElems]);
+            } else {
+                // === 3D-Indexing ===
+                // Zuerst sinnvolle Z-Slab-Tiefe für den L3-Anteil pro Thread wählen …
+                this.slabDepth = pickSlabDepthForL3(width, height, depth, Float.BYTES, threads);
+                // … dann Y-Blockgröße (Zeilen pro Task) passend zur Z-Tiefe und L3 wählen
+                this.rowsPerTask = pickRowsPerTaskFor1DWithDz(width, slabDepth, Float.BYTES, threads, l3);
 
+                // Puffergrößen auf Basis der lokalen Tile-Maße:
+                this.maxSlabElems = width * rowsPerTask * slabDepth;
+                this.cacheSlab = new float[maxSlabElems];
+
+                if (cacheOptPool == null) {
+                    cacheOptPool = Executors.newFixedThreadPool(threads, r -> {
+                        Thread t = new Thread(r);
+                        t.setDaemon(true);
+                        return t;
+                    });
+                }
                 this.cacheOptKernels = ThreadLocal.withInitial(this::createKernel);
                 this.slabsPerThread = ThreadLocal.withInitial(() -> new float[maxSlabElems]);
             }
-            else {
-                //TODO:
-                throw new UnsupportedOperationException("No setup implemented yet for 3D Indexing with ram usage prevention");
-            }
+
             this.kernel = createKernel();
             return this.kernel;
         }
+
 
         @Override
         public void generate3DNoise1DIndexed(float x0, float y0, float z0, float frequency) {
@@ -109,7 +122,7 @@ public abstract class CPUJavaAparapiNoiseBackend extends AparapiNoiseBackend<Abs
             final int L = params.isVectorize() ? HardwareUtil.getVectorLaneLength() : 1;
             final int Wv = params.isVectorize() ? (width + L - 1) / L : width;
 
-            if(params.getParallelismMode().equals(NoiseBackendBuilder.CPUParallelismMode.SEQUENTIAL)) {
+            if (params.getParallelismMode().equals(NoiseBackendBuilder.CPUParallelismMode.SEQUENTIAL)) {
                 kernel.setExecutionMode(Kernel.EXECUTION_MODE.SEQ);
 
                 for (int zStart = 0; zStart < depth; zStart += slabDepth) {
@@ -147,8 +160,7 @@ public abstract class CPUJavaAparapiNoiseBackend extends AparapiNoiseBackend<Abs
                         }
                     }
                 }
-            }
-            else {
+            } else {
 
                 List<Future<?>> futures = new ArrayList<>(1024);
 
@@ -214,8 +226,104 @@ public abstract class CPUJavaAparapiNoiseBackend extends AparapiNoiseBackend<Abs
 
         @Override
         public void generate3DNoise3DIndexed(float x0, float y0, float z0, float frequency) {
-            //TODO:
-            throw new UnsupportedOperationException();
+            final int plane = width * height;
+            final boolean vec = params.isVectorize();
+            final int L = vec ? HardwareUtil.getVectorLaneLength() : 1;
+            final int Wv = vec ? (width + L - 1) / L : width;
+
+            if (params.getParallelismMode().equals(NoiseBackendBuilder.CPUParallelismMode.SEQUENTIAL)) {
+                // SEQ: z in Scheiben (slabDepth), y in Blöcke (rowsPerTask); Ergebnis über cacheSlab zurückkopieren
+                kernel.setExecutionMode(Kernel.EXECUTION_MODE.SEQ);
+
+                for (int zStart = 0; zStart < depth; zStart += slabDepth) {
+                    final int dz = Math.min(slabDepth, depth - zStart);
+
+                    for (int yStart = 0; yStart < height; yStart += rowsPerTask) {
+                        final int rows = Math.min(rowsPerTask, height - yStart);
+
+                        Arrays.fill(cacheSlab, 0);
+                        kernel.bindOutput(cacheSlab);
+
+                        kernel.setParameters(
+                                x0,
+                                y0 + yStart * frequency,       // Y-Offset in Weltkoords
+                                z0 + zStart * frequency,       // Z-Offset in Weltkoords
+                                width, rows, dz,               // lokale Slab-Dims
+                                frequency,
+                                /*base im Slab*/ 0
+                        );
+
+                        final Range r3 = Range.create3D(Wv, rows, dz, 1, 1, 1);
+                        kernel.execute(r3);
+                        kernel.get(cacheSlab);
+
+                        // Slab -> result kopieren (nur "echte" width-Elemente je Zeile)
+                        final int rowStride = width * rows;
+                        for (int z = 0; z < dz; z++) {
+                            final int src = z * rowStride;
+                            final int dst = (zStart + z) * plane + yStart * width;
+                            System.arraycopy(cacheSlab, src, result, dst, rowStride);
+                        }
+                    }
+                }
+            } else {
+                // PARALLEL: gleicher Plan, aber jede Aufgabe läuft SEQ, parallelisiert via Pool
+                final List<Future<?>> futures = new ArrayList<>(1024);
+
+                for (int zStart = 0; zStart < depth; zStart += slabDepth) {
+                    final int dz = Math.min(slabDepth, depth - zStart);
+
+                    for (int yStart = 0; yStart < height; yStart += rowsPerTask) {
+                        final int rows = Math.min(rowsPerTask, height - yStart);
+
+                        final int finalZStart = zStart;
+                        final int finalYStart = yStart;
+
+                        futures.add(cacheOptPool.submit(() -> {
+                            AbstractSimplexNoiseKernel k = cacheOptKernels.get();
+                            float[] slab = slabsPerThread.get();
+
+                            final int needed = width * rows * dz;
+                            if (needed > slab.length) {
+                                throw new IllegalArgumentException("slab has wrong size");
+                            }
+
+                            k.bindOutput(slab);
+                            k.setParameters(
+                                    x0,
+                                    y0 + finalYStart * frequency,
+                                    z0 + finalZStart * frequency,
+                                    width, rows, dz,
+                                    frequency,
+                                    0 // base innerhalb des Slabs
+                            );
+
+                            k.setExecutionMode(Kernel.EXECUTION_MODE.SEQ);
+                            final Range r3 = Range.create3D(Wv, rows, dz, 1, 1, 1);
+                            k.execute(r3);
+
+                            // Slab -> result zurückkopieren
+                            final int rowStride = width * rows;
+                            for (int z = 0; z < dz; z++) {
+                                final int src = z * rowStride;
+                                final int dst = (finalZStart + z) * plane + finalYStart * width;
+                                System.arraycopy(slab, src, result, dst, rowStride);
+                            }
+                        }));
+                    }
+                }
+
+                for (Future<?> f : futures) {
+                    try {
+                        f.get();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(e);
+                    } catch (ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
         }
 
         @Override
@@ -238,19 +346,24 @@ public abstract class CPUJavaAparapiNoiseBackend extends AparapiNoiseBackend<Abs
 
 
     public static class Simple extends CPUJavaAparapiNoiseBackend {
-        public Simple(Device preferredDevice, NoiseBackendBuilder.CPUNoiseBackendBuilder params, float[] result, int width, int height, int depth) {
-            super(preferredDevice, params, result, width, height, depth);
+        public Simple(NoiseBackendBuilder.CPUNoiseBackendBuilder params, float[] result, int width, int height, int depth) {
+            super(params, result, width, height, depth);
         }
 
         @Override
         protected AbstractSimplexNoiseKernel setup() {
-            if(use1DIndexing) {
+            if (use1DIndexing) {
                 this.local1D = 0;
-                this.slabDepth = params.getParallelismMode().equals(NoiseBackendBuilder.CPUParallelismMode.SEQUENTIAL) ? depth : Math.min(32, depth);
-            }
-            else {
-                //TODO:
-                throw new UnsupportedOperationException("No setup implemented yet for 3D Indexing with ram usage prevention");
+                this.slabDepth = params.getParallelismMode().equals(NoiseBackendBuilder.CPUParallelismMode.SEQUENTIAL)
+                        ? depth
+                        : Math.min(32, depth); // kleiner Z-Block für JTP
+            } else {
+                // === 3D-Indexing ===
+                // Für SEQ: ganzes Volumen; für JTP: L3-bewusste Z-Slabs
+                this.slabDepth = params.getParallelismMode().equals(NoiseBackendBuilder.CPUParallelismMode.SEQUENTIAL)
+                        ? depth
+                        : pickSlabDepthForL3(width, height, depth, Float.BYTES, threads());
+                // rowsPerTask nicht nötig in Simple (wir kacheln nur in Z)
             }
             this.kernel = createKernel();
             return this.kernel;
@@ -259,9 +372,9 @@ public abstract class CPUJavaAparapiNoiseBackend extends AparapiNoiseBackend<Abs
         @Override
         public void generate3DNoise1DIndexed(float x0, float y0, float z0, float frequency) {
             final int plane = width * height;
-            final int L     = params.isVectorize() ? HardwareUtil.getVectorLaneLength() : 1;
-            final int Wv    = params.isVectorize() ? (width + L - 1) / L : width;
-            if(params.getParallelismMode().equals(NoiseBackendBuilder.CPUParallelismMode.SEQUENTIAL)) {
+            final int L = params.isVectorize() ? HardwareUtil.getVectorLaneLength() : 1;
+            final int Wv = params.isVectorize() ? (width + L - 1) / L : width;
+            if (params.getParallelismMode().equals(NoiseBackendBuilder.CPUParallelismMode.SEQUENTIAL)) {
                 kernel.bindOutput(result);
                 kernel.setParameters(x0, y0, z0, width, height, depth, frequency, 0);
                 kernel.setExecutionMode(Kernel.EXECUTION_MODE.SEQ);
@@ -269,8 +382,7 @@ public abstract class CPUJavaAparapiNoiseBackend extends AparapiNoiseBackend<Abs
                 // global size: vectorized => Wv * height * depth ; sonst plane * depth
                 final int global = Wv * height * depth;
                 kernel.execute(Range.create(global, 1));
-            }
-            else {
+            } else {
                 kernel.bindOutput(result);
                 kernel.setExecutionMode(Kernel.EXECUTION_MODE.JTP);
 
@@ -296,9 +408,37 @@ public abstract class CPUJavaAparapiNoiseBackend extends AparapiNoiseBackend<Abs
 
         @Override
         public void generate3DNoise3DIndexed(float x0, float y0, float z0, float frequency) {
-            //TODO:
-            throw new UnsupportedOperationException();
+            final int plane = width * height;
+            final boolean vec = params.isVectorize();
+            final int L = vec ? HardwareUtil.getVectorLaneLength() : 1;
+            final int Wv = vec ? (width + L - 1) / L : width;
+
+            kernel.bindOutput(result);
+
+            if (params.getParallelismMode().equals(NoiseBackendBuilder.CPUParallelismMode.SEQUENTIAL)) {
+                // Ein großer 3D-Launch (CPU-SEQ)
+                kernel.setParameters(x0, y0, z0, width, height, depth, frequency, /*base*/ 0);
+                kernel.setExecutionMode(Kernel.EXECUTION_MODE.SEQ);
+                final Range r3 = Range.create3D(Wv, height, depth, 1, 1, 1); // X=Vektor-Kacheln (oder width)
+                kernel.execute(r3);
+            } else {
+                // JTP: z in Scheiben (slabDepth) aufteilen
+                kernel.setExecutionMode(Kernel.EXECUTION_MODE.JTP);
+                for (int zStart = 0; zStart < depth; zStart += slabDepth) {
+                    final int dz = Math.min(slabDepth, depth - zStart);
+                    // base zeigt auf die erste Schicht dieses Z-Blocks im großen Zielarray
+                    kernel.setParameters(
+                            x0, y0, z0 + zStart * frequency,
+                            width, height, dz,
+                            frequency,
+                            zStart * plane
+                    );
+                    final Range r3 = Range.create3D(Wv, height, dz);
+                    kernel.execute(r3);
+                }
+            }
         }
+
 
         @Override
         public void generate2DNoise1DIndexed(float x0, float y0, float frequency) {

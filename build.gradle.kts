@@ -17,6 +17,8 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("com.aparapi:aparapi:3.0.0")
+    testImplementation("com.github.oshi:oshi-core:6.8.3")
 }
 
 tasks.test {

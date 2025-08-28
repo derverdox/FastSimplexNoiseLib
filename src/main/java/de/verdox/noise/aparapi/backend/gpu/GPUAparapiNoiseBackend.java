@@ -67,7 +67,6 @@ public abstract class GPUAparapiNoiseBackend<KERNEL extends CPUScalarSimplexNois
 
         @Override
         protected CPUScalarSimplexNoiseKernel.Simple setup() {
-            //TODO: Also allow for 2D setup
             plan = OpenCLTuner.plan((OpenCLDevice) preferredDevice, width, height, depth, !use1DIndexing, true);
             range = plan.toRange();
             this.kernel = createKernel();
@@ -86,8 +85,13 @@ public abstract class GPUAparapiNoiseBackend<KERNEL extends CPUScalarSimplexNois
 
         @Override
         public void generate3DNoise3DIndexed(float x0, float y0, float z0, float frequency) {
-            //TODO:
-            throw new UnsupportedOperationException();
+            kernel.setExplicit(true);
+            kernel.bindOutput(result);
+
+            kernel.setParameters(x0, y0, z0, width, height, depth, frequency, /*baseIndex=*/0);
+
+            kernel.execute(range);
+            kernel.get(result);
         }
 
         @Override
@@ -169,10 +173,29 @@ public abstract class GPUAparapiNoiseBackend<KERNEL extends CPUScalarSimplexNois
 
         @Override
         public void generate3DNoise3DIndexed(float x0, float y0, float z0, float frequency) {
-            //TODO:
-            throw new UnsupportedOperationException();
-        }
+            // Tiles wurden in setup() bereits mit prefer3D=true geplant
+            kernel.setExplicit(true);
+            kernel.bindOutput(result);
 
+            kernel.globalWidth  = width;
+            kernel.globalHeight = height;
+
+            for (Tile t : tiles) {
+                // Weltkoordinaten-Offset pro Tile (lückenlos zu den Nachbartiles)
+                float bx = x0 + t.bx * frequency;
+                float by = y0 + t.by * frequency;
+                float bz = z0 + t.bz * frequency;
+
+                // Tile-spezifische Dimensionen & globaler Basisindex ins Gesamtarray
+                kernel.setParameters(bx, by, bz, t.tw, t.th, t.td, frequency, t.baseIndex);
+
+                // 3D-Range für dieses Tile (ggf. gepaddet) ausführen
+                kernel.execute(t.range);
+            }
+
+            // Ergebnis einmalig zurückholen
+            kernel.get(result);
+        }
         @Override
         public void generate2DNoise1DIndexed(float x0, float y0, float frequency) {
             //TODO:
