@@ -9,15 +9,9 @@ public abstract class CPUScalarSimplexNoiseKernel extends AbstractSimplexNoiseKe
     }
 
     public void calculate3DNoise(int index, float xin, float yin, float zin) {
-        noiseResult[index] = noiseCalcMode == 0 ? scalarNoiseAluOnly(
-                xin,
-                yin,
-                zin
-        ) : cpuScalarNoiseLookup(
-                xin,
-                yin,
-                zin
-        );
+        noiseResult[index] = noiseCalcMode == 0
+                ? scalarNoiseAluOnly(xin, yin, zin)
+                : cpuScalarNoiseLookup(xin, yin, zin);
     }
 
     public void calculate2DNoise(int index, float xin, float zin) {
@@ -26,6 +20,7 @@ public abstract class CPUScalarSimplexNoiseKernel extends AbstractSimplexNoiseKe
                 : cpuScalarNoiseLookup2D(xin, zin);
     }
 
+    // ==================== Batched ====================
     public abstract static class Batched extends CPUScalarSimplexNoiseKernel {
         public int globalWidth, globalHeight;
 
@@ -49,32 +44,40 @@ public abstract class CPUScalarSimplexNoiseKernel extends AbstractSimplexNoiseKe
                 int z = gid / (gridWidth * gridHeight);
 
                 int idx = baseIndex + x + y * globalWidth + z * globalWidth * globalHeight; // x-major
-                float xin = baseX + x * frequency, yin = baseY + y * frequency, zin = baseZ + z * frequency;
+
+                float xin = (baseX + x) * frequency;
+                float yin = (baseY + y) * frequency;
+                float zin = (baseZ + z) * frequency;
+
                 calculate3DNoise(idx, xin, yin, zin);
             }
         }
 
         public static class Noise3DIndexing3D extends Batched {
-
             public Noise3DIndexing3D(NoiseBackendBuilder.NoiseCalculationMode noiseCalculationMode) {
                 super(noiseCalculationMode);
             }
 
             @Override
             public void run() {
-                int gid = getGlobalId(); // 1D
-                int n = gridWidth * gridHeight * gridDepth;
-                if (gid >= n) return; // Guard, falls global gepaddet
+                int x = getGlobalId(0);
+                int y = getGlobalId(1);
+                int z = getGlobalId(2);
 
-                int x = getGlobalId(0), y = getGlobalId(1), z = getGlobalId(2);
+                // robust gegen gepaddete Ranges
+                if (x >= gridWidth || y >= gridHeight || z >= gridDepth) return;
 
                 int idx = baseIndex + x + y * globalWidth + z * globalWidth * globalHeight; // x-major
-                float xin = baseX + x * frequency, yin = baseY + y * frequency, zin = baseZ + z * frequency;
+
+                float xin = (baseX + x) * frequency;
+                float yin = (baseY + y) * frequency;
+                float zin = (baseZ + z) * frequency;
+
                 calculate3DNoise(idx, xin, yin, zin);
             }
         }
 
-// -------------------- 2D (x,z) --------------------
+        // -------------------- 2D (x,z) --------------------
         /** 1D-globales Launch-Grid → (x,z) Mapping */
         public static class Noise2DIndexing1D extends Batched {
             public Noise2DIndexing1D(NoiseBackendBuilder.NoiseCalculationMode noiseCalculationMode) {
@@ -90,11 +93,11 @@ public abstract class CPUScalarSimplexNoiseKernel extends AbstractSimplexNoiseKe
                 int x = gid % gridWidth;
                 int z = gid / gridWidth;
 
-                // In globales Zielraster (x-major, Zeilen = depth)
-                int idx = baseIndex + x + z * globalWidth;
+                int idx = baseIndex + x + z * globalWidth; // x-major (Zeilen = depth)
 
-                float xin = baseX + x * frequency;
-                float zin = baseZ + z * frequency;
+                float xin = (baseX + x) * frequency;
+                float zin = (baseZ + z) * frequency;
+
                 calculate2DNoise(idx, xin, zin);
             }
         }
@@ -110,17 +113,19 @@ public abstract class CPUScalarSimplexNoiseKernel extends AbstractSimplexNoiseKe
                 int x = getGlobalId(0);
                 int z = getGlobalId(1);
 
-                if (x >= gridWidth || z >= gridDepth) return; // Guard
+                if (x >= gridWidth || z >= gridDepth) return;
 
                 int idx = baseIndex + x + z * globalWidth;
 
-                float xin = baseX + x * frequency;
-                float zin = baseZ + z * frequency;
+                float xin = (baseX + x) * frequency;
+                float zin = (baseZ + z) * frequency;
+
                 calculate2DNoise(idx, xin, zin);
             }
         }
     }
 
+    // ==================== Simple ====================
     public abstract static class Simple extends CPUScalarSimplexNoiseKernel {
         public Simple(NoiseBackendBuilder.NoiseCalculationMode noiseCalculationMode) {
             super(noiseCalculationMode);
@@ -139,12 +144,17 @@ public abstract class CPUScalarSimplexNoiseKernel extends AbstractSimplexNoiseKe
                 int y = (i / gridWidth) % gridHeight;
                 int z = i / (gridWidth * gridHeight);
 
-                calculate3DNoise(baseIndex + i, baseX + x * frequency, baseY + y * frequency, baseZ + z * frequency);
+                int idx = baseIndex + i;
+
+                float xin = (baseX + x) * frequency;
+                float yin = (baseY + y) * frequency;
+                float zin = (baseZ + z) * frequency;
+
+                calculate3DNoise(idx, xin, yin, zin);
             }
         }
 
         public static class Noise3DIndexing3D extends Simple {
-
             public Noise3DIndexing3D(NoiseBackendBuilder.NoiseCalculationMode noiseCalculationMode) {
                 super(noiseCalculationMode);
             }
@@ -154,10 +164,15 @@ public abstract class CPUScalarSimplexNoiseKernel extends AbstractSimplexNoiseKe
                 int x = getGlobalId(0);
                 int y = getGlobalId(1);
                 int z = getGlobalId(2);
-                int li = (z * gridHeight + y) * gridWidth + x;
+
+                int li = (z * gridHeight + y) * gridWidth + x; // lokal, dicht gepackt
                 int idx = baseIndex + li;
 
-                calculate3DNoise(idx, baseX + x * frequency, baseY + y * frequency, baseZ + z * frequency);
+                float xin = (baseX + x) * frequency;
+                float yin = (baseY + y) * frequency;
+                float zin = (baseZ + z) * frequency;
+
+                calculate3DNoise(idx, xin, yin, zin);
             }
         }
 
@@ -177,12 +192,13 @@ public abstract class CPUScalarSimplexNoiseKernel extends AbstractSimplexNoiseKe
                 int x = i % gridWidth;
                 int z = i / gridWidth;
 
-                int li = z * gridWidth + x;       // lokal: x-major
+                int li = z * gridWidth + x; // lokal: x-major
                 int idx = baseIndex + li;
 
-                calculate2DNoise(idx,
-                        baseX + x * frequency,
-                        baseZ + z * frequency);
+                float xin = (baseX + x) * frequency;
+                float zin = (baseZ + z) * frequency;
+
+                calculate2DNoise(idx, xin, zin);
             }
         }
 
@@ -199,12 +215,13 @@ public abstract class CPUScalarSimplexNoiseKernel extends AbstractSimplexNoiseKe
 
                 if (x >= gridWidth || z >= gridDepth) return;
 
-                int li = z * gridWidth + x;       // lokal: x-major
+                int li = z * gridWidth + x; // lokal: x-major
                 int idx = baseIndex + li;
 
-                calculate2DNoise(idx,
-                        baseX + x * frequency,
-                        baseZ + z * frequency);
+                float xin = (baseX + x) * frequency;
+                float zin = (baseZ + z) * frequency;
+
+                calculate2DNoise(idx, xin, zin);
             }
         }
     }

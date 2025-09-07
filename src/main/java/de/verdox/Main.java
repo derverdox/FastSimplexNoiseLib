@@ -11,12 +11,12 @@ import java.util.Arrays;
 
 public class Main {
 
-    private static final int size = 1024;
+    private static final int size = 16;
 
     public static void main(String[] args) throws IOException {
         NoiseBackend backend = NoiseBackendBuilder.gpu()
                 .withSeed(1239179847938347234L)
-                .withSize2D(size, (byte) 1, LODUtil.LODMode.TILE_PYRAMID)
+                .withSize2D(size, (byte) 0, LODUtil.LODMode.TILE_PYRAMID)
                 //.vectorize(false)
                 //.withParallelismMode(NoiseBackendBuilder.CPUParallelismMode.PARALLELISM_CORES)
                 .build();

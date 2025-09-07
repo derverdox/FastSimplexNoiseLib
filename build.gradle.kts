@@ -1,10 +1,11 @@
 plugins {
     id("java")
     id("me.champeau.jmh") version "0.7.2"
+    id("maven-publish")
 }
 
 group = "de.verdox"
-version = "1.0-SNAPSHOT"
+version = "1.0.0"
 
 repositories {
     mavenCentral()
@@ -62,4 +63,25 @@ jmh {
             "--add-modules", "jdk.incubator.vector"
         )
     )
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
+
+            groupId = project.group.toString()
+            artifactId = "fastsimplexnoiselib"
+            version = project.version.toString()
+
+            pom {
+                name.set("FastSimplexNoiseLib")
+                description.set("Fast Simplex Noise Library")
+            }
+        }
+    }
+
+    repositories {
+        mavenLocal()
+    }
 }
