@@ -5,9 +5,10 @@ import java.awt.image.WritableRaster;
 
 public abstract class NoiseBackend {
     protected int width;
-    protected int height;
+    protected int height = 1;
     protected int depth;
     protected float[] result;
+    public final boolean is3D;
 
     public NoiseBackend(float[] result, int width, int height, int depth) {
         if (result.length != width * height * depth) {
@@ -17,6 +18,17 @@ public abstract class NoiseBackend {
         this.width = width;
         this.height = height;
         this.depth = depth;
+        this.is3D = true;
+    }
+
+    public NoiseBackend(float[] result, int width, int depth) {
+        if (result.length != width * depth) {
+            throw new IllegalArgumentException("Result array does not have the correct length");
+        }
+        this.result = result;
+        this.width = width;
+        this.depth = depth;
+        this.is3D = false;
     }
 
     public void rebind(float[] result, int width, int height, int depth) {
@@ -49,7 +61,7 @@ public abstract class NoiseBackend {
      * Erstellt aus der obersten Schicht (z = depth-1) eines Z-major 3D-Felds
      * ein 8-bit Graustufenbild (TYPE_BYTE_GRAY) mit Min/Max-Normalisierung.
      */
-    public BufferedImage topLayerToGrayscale() {
+    public BufferedImage topLayer3DToGrayscale() {
         int plane = width * height;
         if (result.length < (long) plane * depth) {
             throw new IllegalArgumentException("field too small for given dims");
@@ -91,6 +103,40 @@ public abstract class NoiseBackend {
             }
             raster.setDataElements(0, y, width, 1, row);
         }
+        return img;
+    }
+
+    /**
+     * Erstellt aus einem 1D-Noise-Array eine Graustufen-Heightmap.
+     */
+    public BufferedImage noise2DToGrayscale() {
+        if (result.length != width * depth) {
+            throw new IllegalArgumentException("Noise-Länge passt nicht zu width*height!");
+        }
+
+        BufferedImage img = new BufferedImage(width, depth, BufferedImage.TYPE_BYTE_GRAY);
+        WritableRaster raster = img.getRaster();
+
+        // Min/Max ermitteln
+        float min = Float.POSITIVE_INFINITY;
+        float max = Float.NEGATIVE_INFINITY;
+        for (float v : result) {
+            if (v < min) min = v;
+            if (v > max) max = v;
+        }
+        float range = (max - min);
+        if (range == 0f) range = 1f;
+
+        // Pixel setzen
+        for (int z = 0; z < depth; z++) {
+            for (int x = 0; x < width; x++) {
+                int idx = x + z * width; // Index im 1D-Array
+                float v = result[idx];
+                int gray = Math.round(((v - min) / range) * 255f);
+                raster.setSample(x, z, 0, gray);
+            }
+        }
+
         return img;
     }
 

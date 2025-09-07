@@ -8,6 +8,7 @@ import de.verdox.noise.OpenCLTuner;
 import de.verdox.noise.aparapi.backend.AparapiNoiseBackend;
 import de.verdox.noise.aparapi.kernel.cpu.CPUScalarSimplexNoiseKernel;
 import de.verdox.util.FormatUtil;
+import de.verdox.util.LODUtil;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,35 +22,53 @@ public abstract class GPUAparapiNoiseBackend<KERNEL extends CPUScalarSimplexNois
         this.params = params;
     }
 
+    public GPUAparapiNoiseBackend(OpenCLDevice preferredDevice, NoiseBackendBuilder.GPUNoiseBackendBuilder params, float[] result, int width, int depth) {
+        super(preferredDevice, params.getNoiseCalculationMode(), result, width, depth);
+        this.params = params;
+    }
+
     @Override
     public void logSetup() {
-        OpenCLDevice openCLDevice = (OpenCLDevice) preferredDevice;
-        final int maxWG = openCLDevice.getMaxWorkGroupSize();
-        final int[] maxIt = openCLDevice.getMaxWorkItemSize();
-        final int CUs = openCLDevice.getMaxComputeUnits();
-        final long lmem = openCLDevice.getLocalMemSize();
+        OpenCLDevice dev = (OpenCLDevice) preferredDevice;
+        final int maxWG = dev.getMaxWorkGroupSize();
+        final int[] maxIt = dev.getMaxWorkItemSize();
+        final int CUs = dev.getMaxComputeUnits();
+        final long lmem = dev.getLocalMemSize();
         System.out.println();
 
-        OpenCLTuner.Plan plan = OpenCLTuner.plan(openCLDevice, width, height, depth, false, true);
+        // LOD-Dimensionen für Logging/Plan
+        final int lod = params.getLodLevel();
+        final var lodMode = params.getLodMode();
+
+        int Wlod, Hlod, Dlod;
+        OpenCLTuner.Plan planLog;
+
+        if (params.is3DMode()) {
+            LODUtil.LOD3DParams lp = LODUtil.computeLOD3D(width, height, depth, 0f, 0f, 0f, 1f, lod, lodMode);
+            Wlod = lp.widthLOD(); Hlod = lp.heightLOD(); Dlod = lp.depthLOD();
+            planLog = OpenCLTuner.plan(dev, Wlod, Hlod, Dlod, /*prefer3D*/ true, /*align*/ true);
+        } else {
+            LODUtil.LOD2DParams lp = LODUtil.computeLOD2D(width, depth, 0f, 0f, 1f, lod, lodMode);
+            Wlod = lp.widthLOD(); Hlod = 1; Dlod = lp.depthLOD();
+            planLog = OpenCLTuner.plan2D(dev, Wlod, Dlod, /*prefer2D*/ true, /*align*/ true);
+        }
 
         System.out.println("=== GPUOpenCLBackend ===");
-        System.out.println("Device: " + openCLDevice.getName() + " (" + openCLDevice.getType() + ") | Vendor: " + openCLDevice
-                .getOpenCLPlatform().getVersion());
+        System.out.println("Device: " + dev.getName() + " (" + dev.getType() + ") | Vendor: " + dev.getOpenCLPlatform().getVersion());
         System.out.println("Compute Units: " + CUs);
         System.out.println("> L1 Cache: " + FormatUtil.formatBytes2(lmem));
-        System.out.println("> Warp Size: " + AparapiBackendUtil.detectPreferredWarp(openCLDevice) + " threads");
-        System.out.println(plan);
+        System.out.println("> Warp Size: " + AparapiBackendUtil.detectPreferredWarp(dev) + " threads");
+        System.out.println(planLog);
 
-
-        System.out.println("Allocated: " + FormatUtil.formatBytes2((long) width * height * depth * Float.BYTES) + " / " + FormatUtil.formatBytes2(openCLDevice.getMaxMemAllocSize()));
+        long allocElems = (long) Wlod * Hlod * Dlod;
+        System.out.println("Allocated (LOD dims): " + FormatUtil.formatBytes2(allocElems * Float.BYTES) +
+                " / " + FormatUtil.formatBytes2(dev.getMaxMemAllocSize()));
         System.out.println("MaxWorkGroupSize: " + maxWG + " | MaxWorkItemSizes: " + Arrays.toString(maxIt));
 
         if (use1DIndexing) {
-            System.out.printf("Mode: 3D | local=(%d,%d,%d) | slabDepth=%d | dims=(%d,%d,%d)%n",
-                    localX, localY, localZ, slabDepth, width, height, depth);
+            System.out.printf("Mode: 1D | dims(LOD)=(%d,%d,%d)%n", Wlod, Hlod, Dlod);
         } else {
-            System.out.printf("Mode: 1D | local=%d | slabDepth=%d | dims=(%d,%d,%d)%n",
-                    local1D, slabDepth, width, height, depth);
+            System.out.printf("Mode: 3D/2D | dims(LOD)=(%d,%d,%d)%n", Wlod, Hlod, Dlod);
         }
         System.out.println("================================");
     }
@@ -65,9 +84,29 @@ public abstract class GPUAparapiNoiseBackend<KERNEL extends CPUScalarSimplexNois
             super(preferredDevice, params, result, width, height, depth);
         }
 
+        public Simple(OpenCLDevice preferredDevice, NoiseBackendBuilder.GPUNoiseBackendBuilder params, float[] result, int width, int depth) {
+            super(preferredDevice, params, result, width, depth);
+        }
+
         @Override
         protected CPUScalarSimplexNoiseKernel.Simple setup() {
-            plan = OpenCLTuner.plan((OpenCLDevice) preferredDevice, width, height, depth, !use1DIndexing, true);
+            // LOD ist fix → Range einmalig mit LOD-Dimensionen planen
+            final int lod = params.getLodLevel();
+            final var lodMode = params.getLodMode();
+
+            if (params.is3DMode()) {
+                LODUtil.LOD3DParams lp = LODUtil.computeLOD3D(width, height, depth, 0f, 0f, 0f, 1f, lod, lodMode);
+                plan  = OpenCLTuner.plan((OpenCLDevice) preferredDevice,
+                        lp.widthLOD(), lp.heightLOD(), lp.depthLOD(),
+                        /*prefer3D*/ !use1DIndexing,
+                        /*align*/ true);
+            } else {
+                LODUtil.LOD2DParams lp = LODUtil.computeLOD2D(width, depth, 0f, 0f, 1f, lod, lodMode);
+                plan  = OpenCLTuner.plan2D((OpenCLDevice) preferredDevice,
+                        lp.widthLOD(), lp.depthLOD(),
+                        /*prefer2D*/ !use1DIndexing,
+                        /*align*/ true);
+            }
             range = plan.toRange();
             this.kernel = createKernel();
             return this.kernel;
@@ -75,40 +114,77 @@ public abstract class GPUAparapiNoiseBackend<KERNEL extends CPUScalarSimplexNois
 
         @Override
         public void generate3DNoise1DIndexed(float x0, float y0, float z0, float frequency) {
+            final var lp = LODUtil.computeLOD3D(width, height, depth, x0, y0, z0, frequency, params.getLodLevel(), params.getLodMode());
             kernel.setExplicit(true);
             kernel.bindOutput(result);
-            kernel.setExplicit(true);
-            kernel.setParameters(0, 0, 0, width, height, depth, frequency, 0);
-            kernel.execute(range);
+            kernel.setParameters(lp.baseX(), lp.baseY(), lp.baseZ(),
+                    lp.widthLOD(), lp.heightLOD(), lp.depthLOD(),
+                    lp.frequencyLOD(),
+                    0, params.getSeed());
+            kernel.execute(range); // Range wurde im setup() mit LOD-Dims geplant
             kernel.get(result);
         }
 
         @Override
         public void generate3DNoise3DIndexed(float x0, float y0, float z0, float frequency) {
+            final var lp = LODUtil.computeLOD3D(width, height, depth, x0, y0, z0, frequency, params.getLodLevel(), params.getLodMode());
             kernel.setExplicit(true);
             kernel.bindOutput(result);
-
-            kernel.setParameters(x0, y0, z0, width, height, depth, frequency, /*baseIndex=*/0);
-
+            kernel.setParameters(lp.baseX(), lp.baseY(), lp.baseZ(),
+                    lp.widthLOD(), lp.heightLOD(), lp.depthLOD(),
+                    lp.frequencyLOD(),
+                    0, params.getSeed());
             kernel.execute(range);
             kernel.get(result);
         }
 
         @Override
         public void generate2DNoise1DIndexed(float x0, float y0, float frequency) {
-            //TODO:
-            throw new UnsupportedOperationException();
+            final var lp = LODUtil.computeLOD2D(width, depth, x0, y0, frequency, params.getLodLevel(), params.getLodMode());
+            kernel.setExplicit(true);
+            kernel.bindOutput(result);
+            kernel.setParameters(
+                    lp.baseX(),
+                    /*baseY*/ 0f,
+                    /*baseZ*/ lp.baseZ(),
+                    lp.widthLOD(), /*height*/ 1, lp.depthLOD(),
+                    lp.frequencyLOD(),
+                    /*baseIndex*/ 0,
+                    params.getSeed()
+            );
+            kernel.execute(range);
+            kernel.get(result);
         }
 
         @Override
         public void generate2DNoise2DIndexed(float x0, float y0, float frequency) {
-            //TODO:
-            throw new UnsupportedOperationException();
+            final var lp = LODUtil.computeLOD2D(width, depth, x0, y0, frequency, params.getLodLevel(), params.getLodMode());
+            kernel.setExplicit(true);
+            kernel.bindOutput(result);
+            kernel.setParameters(
+                    lp.baseX(),
+                    0f,
+                    lp.baseZ(),
+                    lp.widthLOD(), 1, lp.depthLOD(),
+                    lp.frequencyLOD(),
+                    0,
+                    params.getSeed()
+            );
+            kernel.execute(range);
+            kernel.get(result);
         }
 
         @Override
         protected CPUScalarSimplexNoiseKernel.Simple createKernel() {
-            return use1DIndexing ? new CPUScalarSimplexNoiseKernel.Simple.Noise3DIndexing1D(calculationMode) : new CPUScalarSimplexNoiseKernel.Simple.Noise3DIndexing3D(calculationMode);
+            if (use1DIndexing) {
+                return params.is3DMode()
+                        ? new CPUScalarSimplexNoiseKernel.Simple.Noise3DIndexing1D(calculationMode)
+                        : new CPUScalarSimplexNoiseKernel.Simple.Noise2DIndexing1D(calculationMode);
+            } else {
+                return params.is3DMode()
+                        ? new CPUScalarSimplexNoiseKernel.Simple.Noise3DIndexing3D(calculationMode)
+                        : new CPUScalarSimplexNoiseKernel.Simple.Noise2DIndexing2D(calculationMode);
+            }
         }
     }
 
@@ -120,6 +196,10 @@ public abstract class GPUAparapiNoiseBackend<KERNEL extends CPUScalarSimplexNois
             super(preferredDevice, params, result, width, height, depth);
         }
 
+        public Batched(OpenCLDevice preferredDevice, NoiseBackendBuilder.GPUNoiseBackendBuilder params, float[] result, int width, int depth) {
+            super(preferredDevice, params, result, width, depth);
+        }
+
         @Override
         protected CPUScalarSimplexNoiseKernel.Batched setup() {
             // Kernel erstellen & auf explizite Transfers stellen
@@ -127,22 +207,47 @@ public abstract class GPUAparapiNoiseBackend<KERNEL extends CPUScalarSimplexNois
             kernel.setExplicit(true);
             kernel.bindOutput(result); // write-only → kein put()
 
-            // Tiles vorab planen (1D-Range; local=256, global gepaddet)
-            for (int zBase = 0; zBase < depth; zBase += TILE) {
-                int td = Math.min(TILE, depth - zBase);
-                for (int yBase = 0; yBase < height; yBase += TILE) {
-                    int th = Math.min(TILE, height - yBase);
-                    for (int xBase = 0; xBase < width; xBase += TILE) {
-                        int tw = Math.min(TILE, width - xBase);
+            // Tiles anhand der LOD-Dimensionen erzeugen
+            final int lod = params.getLodLevel();
+            final var lodMode = params.getLodMode();
 
-                        OpenCLTuner.Plan plan = OpenCLTuner.plan((OpenCLDevice) preferredDevice, tw, th, td,
-                                /*prefer3D=*/true,
-                                /*alignBaseIndexTo32=*/true);
-                        Range tileRange = plan.toRange();
+            tiles.clear();
 
-                        int baseIndex = xBase + yBase * width + zBase * width * height;
+            if (params.is3DMode()) {
+                LODUtil.LOD3DParams lp = LODUtil.computeLOD3D(width, height, depth, 0f, 0f, 0f, 1f, lod, lodMode);
+                final int W = lp.widthLOD(), H = lp.heightLOD(), D = lp.depthLOD();
 
-                        tiles.add(new Tile(xBase, yBase, zBase, tw, th, td, baseIndex, tileRange));
+                for (int zBase = 0; zBase < D; zBase += TILE) {
+                    int td = Math.min(TILE, D - zBase);
+                    for (int yBase = 0; yBase < H; yBase += TILE) {
+                        int th = Math.min(TILE, H - yBase);
+                        for (int xBase = 0; xBase < W; xBase += TILE) {
+                            int tw = Math.min(TILE, W - xBase);
+
+                            OpenCLTuner.Plan p = OpenCLTuner.plan((OpenCLDevice) preferredDevice, tw, th, td,
+                                    /*prefer3D*/ true, /*align*/ true);
+                            Range r = p.toRange();
+
+                            int baseIndex = xBase + yBase * W + zBase * W * H;
+                            tiles.add(new Tile(xBase, yBase, zBase, tw, th, td, baseIndex, r));
+                        }
+                    }
+                }
+            } else {
+                LODUtil.LOD2DParams lp = LODUtil.computeLOD2D(width, depth, 0f, 0f, 1f, lod, lodMode);
+                final int W = lp.widthLOD(), D = lp.depthLOD();
+
+                for (int zBase = 0; zBase < D; zBase += TILE) {
+                    int td = Math.min(TILE, D - zBase);
+                    for (int xBase = 0; xBase < W; xBase += TILE) {
+                        int tw = Math.min(TILE, W - xBase);
+
+                        OpenCLTuner.Plan p = OpenCLTuner.plan2D((OpenCLDevice) preferredDevice, tw, td,
+                                /*prefer2D*/ true, /*align*/ true);
+                        Range r = p.toRange();
+
+                        int baseIndex = xBase + zBase * W; // H=1
+                        tiles.add(new Tile(xBase, /*yBase*/ 0, zBase, tw, /*th*/ 1, td, baseIndex, r));
                     }
                 }
             }
@@ -151,65 +256,100 @@ public abstract class GPUAparapiNoiseBackend<KERNEL extends CPUScalarSimplexNois
 
         @Override
         protected CPUScalarSimplexNoiseKernel.Batched createKernel() {
-            return use1DIndexing ? new CPUScalarSimplexNoiseKernel.Batched.Noise3DIndexing1D(calculationMode) : new CPUScalarSimplexNoiseKernel.Batched.Noise3DIndexing3D(calculationMode);
+            return use1DIndexing
+                    ? (params.is3DMode()
+                    ? new CPUScalarSimplexNoiseKernel.Batched.Noise3DIndexing1D(calculationMode)
+                    : new CPUScalarSimplexNoiseKernel.Batched.Noise2DIndexing1D(calculationMode))
+                    : (params.is3DMode()
+                    ? new CPUScalarSimplexNoiseKernel.Batched.Noise3DIndexing3D(calculationMode)
+                    : new CPUScalarSimplexNoiseKernel.Batched.Noise2DIndexing2D(calculationMode));
         }
 
         @Override
         public void generate3DNoise1DIndexed(float x0, float y0, float z0, float frequency) {
-            // Tiles rechnen; kein get() im Loop
-            for (Tile t : tiles) {
-                float bx = x0 + t.bx * frequency;
-                float by = y0 + t.by * frequency;
-                float bz = z0 + t.bz * frequency;
+            final var lp = LODUtil.computeLOD3D(width, height, depth, x0, y0, z0, frequency, params.getLodLevel(), params.getLodMode());
+            // globalWidth/-Height für den Batched-Kernel gemäß LOD-Dims
+            if (kernel instanceof CPUScalarSimplexNoiseKernel.Batched k) {
+                k.globalWidth = lp.widthLOD();
+                k.globalHeight = lp.heightLOD();
+            }
 
-                kernel.setParameters(bx, by, bz, t.tw, t.th, t.td, frequency, t.baseIndex);
-                kernel.globalWidth = width;
-                kernel.globalHeight = height;
+            for (Tile t : tiles) {
+                float bx = lp.baseX() + t.bx * lp.frequencyLOD();
+                float by = lp.baseY() + t.by * lp.frequencyLOD();
+                float bz = lp.baseZ() + t.bz * lp.frequencyLOD();
+
+                kernel.setParameters(bx, by, bz, t.tw, t.th, t.td, lp.frequencyLOD(), t.baseIndex, params.getSeed());
                 kernel.execute(t.range);
             }
-            // EIN get() am Ende (oder blockweise, falls gewünscht)
             kernel.get(result);
         }
 
         @Override
         public void generate3DNoise3DIndexed(float x0, float y0, float z0, float frequency) {
-            // Tiles wurden in setup() bereits mit prefer3D=true geplant
-            kernel.setExplicit(true);
-            kernel.bindOutput(result);
-
-            kernel.globalWidth  = width;
-            kernel.globalHeight = height;
-
-            for (Tile t : tiles) {
-                // Weltkoordinaten-Offset pro Tile (lückenlos zu den Nachbartiles)
-                float bx = x0 + t.bx * frequency;
-                float by = y0 + t.by * frequency;
-                float bz = z0 + t.bz * frequency;
-
-                // Tile-spezifische Dimensionen & globaler Basisindex ins Gesamtarray
-                kernel.setParameters(bx, by, bz, t.tw, t.th, t.td, frequency, t.baseIndex);
-
-                // 3D-Range für dieses Tile (ggf. gepaddet) ausführen
-                kernel.execute(t.range);
+            final var lp = LODUtil.computeLOD3D(width, height, depth, x0, y0, z0, frequency, params.getLodLevel(), params.getLodMode());
+            if (kernel instanceof CPUScalarSimplexNoiseKernel.Batched k) {
+                k.globalWidth = lp.widthLOD();
+                k.globalHeight = lp.heightLOD();
             }
 
-            // Ergebnis einmalig zurückholen
+            for (Tile t : tiles) {
+                float bx = lp.baseX() + t.bx * lp.frequencyLOD();
+                float by = lp.baseY() + t.by * lp.frequencyLOD();
+                float bz = lp.baseZ() + t.bz * lp.frequencyLOD();
+
+                kernel.setParameters(bx, by, bz, t.tw, t.th, t.td, lp.frequencyLOD(), t.baseIndex, params.getSeed());
+                kernel.execute(t.range);
+            }
             kernel.get(result);
         }
+
         @Override
         public void generate2DNoise1DIndexed(float x0, float y0, float frequency) {
-            //TODO:
-            throw new UnsupportedOperationException();
+            final var lp = LODUtil.computeLOD2D(width, depth, x0, y0, frequency, params.getLodLevel(), params.getLodMode());
+
+            for (Tile t : tiles) {
+                float bx = lp.baseX() + t.bx * lp.frequencyLOD();
+                float bz = lp.baseZ() + t.bz * lp.frequencyLOD();
+
+                kernel.setParameters(
+                        bx,
+                        0f,
+                        bz,
+                        t.tw, /*height*/ t.th, /*depth*/ t.td,  // th ist 1
+                        lp.frequencyLOD(),
+                        t.baseIndex,
+                        params.getSeed()
+                );
+                kernel.execute(t.range);
+            }
+            kernel.get(result);
         }
 
         @Override
         public void generate2DNoise2DIndexed(float x0, float y0, float frequency) {
-            //TODO:
-            throw new UnsupportedOperationException();
-        }
+            final var lp = LODUtil.computeLOD2D(width, depth, x0, y0, frequency, params.getLodLevel(), params.getLodMode());
 
-        private record Tile(int bx, int by, int bz, int tw, int th, int td,
-                            int baseIndex, Range range) {
+            for (Tile t : tiles) {
+                float bx = lp.baseX() + t.bx * lp.frequencyLOD();
+                float bz = lp.baseZ() + t.bz * lp.frequencyLOD();
+
+                kernel.setParameters(
+                        bx,
+                        0f,
+                        bz,
+                        t.tw, /*height*/ t.th, /*depth*/ t.td,
+                        lp.frequencyLOD(),
+                        t.baseIndex,
+                        params.getSeed()
+                );
+                kernel.execute(t.range);
+            }
+            kernel.get(result);
         }
+    }
+
+    private record Tile(int bx, int by, int bz, int tw, int th, int td,
+                        int baseIndex, Range range) {
     }
 }

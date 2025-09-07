@@ -20,6 +20,12 @@ public abstract class CPUScalarSimplexNoiseKernel extends AbstractSimplexNoiseKe
         );
     }
 
+    public void calculate2DNoise(int index, float xin, float zin) {
+        noiseResult[index] = (noiseCalcMode == 0)
+                ? scalarNoiseAluOnly2D(xin, zin)
+                : cpuScalarNoiseLookup2D(xin, zin);
+    }
+
     public abstract static class Batched extends CPUScalarSimplexNoiseKernel {
         public int globalWidth, globalHeight;
 
@@ -67,6 +73,52 @@ public abstract class CPUScalarSimplexNoiseKernel extends AbstractSimplexNoiseKe
                 calculate3DNoise(idx, xin, yin, zin);
             }
         }
+
+// -------------------- 2D (x,z) --------------------
+        /** 1D-globales Launch-Grid → (x,z) Mapping */
+        public static class Noise2DIndexing1D extends Batched {
+            public Noise2DIndexing1D(NoiseBackendBuilder.NoiseCalculationMode noiseCalculationMode) {
+                super(noiseCalculationMode);
+            }
+
+            @Override
+            public void run() {
+                int gid = getGlobalId(); // 1D
+                int n = gridWidth * gridDepth;
+                if (gid >= n) return;
+
+                int x = gid % gridWidth;
+                int z = gid / gridWidth;
+
+                // In globales Zielraster (x-major, Zeilen = depth)
+                int idx = baseIndex + x + z * globalWidth;
+
+                float xin = baseX + x * frequency;
+                float zin = baseZ + z * frequency;
+                calculate2DNoise(idx, xin, zin);
+            }
+        }
+
+        /** 2D-globales Launch-Grid: (x,z) */
+        public static class Noise2DIndexing2D extends Batched {
+            public Noise2DIndexing2D(NoiseBackendBuilder.NoiseCalculationMode noiseCalculationMode) {
+                super(noiseCalculationMode);
+            }
+
+            @Override
+            public void run() {
+                int x = getGlobalId(0);
+                int z = getGlobalId(1);
+
+                if (x >= gridWidth || z >= gridDepth) return; // Guard
+
+                int idx = baseIndex + x + z * globalWidth;
+
+                float xin = baseX + x * frequency;
+                float zin = baseZ + z * frequency;
+                calculate2DNoise(idx, xin, zin);
+            }
+        }
     }
 
     public abstract static class Simple extends CPUScalarSimplexNoiseKernel {
@@ -106,6 +158,53 @@ public abstract class CPUScalarSimplexNoiseKernel extends AbstractSimplexNoiseKe
                 int idx = baseIndex + li;
 
                 calculate3DNoise(idx, baseX + x * frequency, baseY + y * frequency, baseZ + z * frequency);
+            }
+        }
+
+        // -------------------- 2D (x,z) --------------------
+        /** 1D-globales Launch-Grid → (x,z), lokal dicht gepackt */
+        public static class Noise2DIndexing1D extends Simple {
+            public Noise2DIndexing1D(NoiseBackendBuilder.NoiseCalculationMode noiseCalculationMode) {
+                super(noiseCalculationMode);
+            }
+
+            @Override
+            public void run() {
+                int i = getGlobalId(0);
+                int n = gridWidth * gridDepth;
+                if (i >= n) return;
+
+                int x = i % gridWidth;
+                int z = i / gridWidth;
+
+                int li = z * gridWidth + x;       // lokal: x-major
+                int idx = baseIndex + li;
+
+                calculate2DNoise(idx,
+                        baseX + x * frequency,
+                        baseZ + z * frequency);
+            }
+        }
+
+        /** 2D-globales Launch-Grid: (x,z), lokal dicht gepackt */
+        public static class Noise2DIndexing2D extends Simple {
+            public Noise2DIndexing2D(NoiseBackendBuilder.NoiseCalculationMode noiseCalculationMode) {
+                super(noiseCalculationMode);
+            }
+
+            @Override
+            public void run() {
+                int x = getGlobalId(0);
+                int z = getGlobalId(1);
+
+                if (x >= gridWidth || z >= gridDepth) return;
+
+                int li = z * gridWidth + x;       // lokal: x-major
+                int idx = baseIndex + li;
+
+                calculate2DNoise(idx,
+                        baseX + x * frequency,
+                        baseZ + z * frequency);
             }
         }
     }

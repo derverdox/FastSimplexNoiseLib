@@ -22,6 +22,12 @@ public abstract class AparapiNoiseBackend<KERNEL extends AbstractSimplexNoiseKer
         this.calculationMode = calculationMode;
     }
 
+    public AparapiNoiseBackend(Device preferredDevice, NoiseBackendBuilder.NoiseCalculationMode calculationMode, float[] result, int width, int depth) {
+        super(result, width, depth);
+        this.preferredDevice = preferredDevice;
+        this.calculationMode = calculationMode;
+    }
+
     @Override
     public void rebind(float[] result, int width, int height, int depth) {
         super.rebind(result, width, height, depth);

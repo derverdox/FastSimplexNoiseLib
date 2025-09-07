@@ -18,4 +18,8 @@ public class NoiseEngine3D {
     public void computeNoise(float startX, float startY, float startZ, float frequency) {
         this.noiseBackend.generate(startX, startY, startZ, frequency);
     }
+
+    public void computeNoise(float startX, float startZ, float frequency) {
+        this.noiseBackend.generate(startX, startZ, frequency);
+    }
 }

@@ -55,7 +55,7 @@ jmh {
     warmupIterations.set(5)
     iterations.set(10)
     fork.set(2)
-
+    profilers.set(listOf("gc", "stack"))
     jvmArgsAppend.set(
         listOf(
             "--enable-preview",

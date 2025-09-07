@@ -4,8 +4,10 @@ import com.aparapi.device.OpenCLDevice;
 import com.aparapi.internal.kernel.KernelManager;
 import de.verdox.noise.aparapi.backend.cpu.CPUJavaAparapiNoiseBackend;
 import de.verdox.noise.aparapi.backend.gpu.GPUAparapiNoiseBackend;
+import de.verdox.util.LODUtil;
 
 public abstract class NoiseBackendBuilder<BUILDER extends NoiseBackendBuilder<BUILDER>> {
+
 
     public static CPUNoiseBackendBuilder cpu() {
         return new CPUNoiseBackendBuilder();
@@ -15,13 +17,47 @@ public abstract class NoiseBackendBuilder<BUILDER extends NoiseBackendBuilder<BU
         return new GPUNoiseBackendBuilder();
     }
 
+    protected byte lodLevel = 0;
+    protected LODUtil.LODMode lodMode = LODUtil.LODMode.CHUNK_LOCAL;
+    protected long seed;
     protected int size = 16;
     protected boolean is3D = false;
     protected boolean oneDimensionalIndexing = true;
     protected float[] result = new float[size * size * size];
     protected NoiseCalculationMode noiseCalculationMode = NoiseCalculationMode.ALU_ONLY;
 
+    public byte getLodLevel() {
+        return lodLevel;
+    }
+
+    public LODUtil.LODMode getLodMode() {
+        return lodMode;
+    }
+
     private NoiseBackendBuilder() {
+    }
+
+    public long getSeed() {
+        return seed;
+    }
+
+    public BUILDER withSeed(long seed) {
+        this.seed = seed;
+        return (BUILDER) this;
+    }
+
+    public boolean is3DMode() {
+        return is3D;
+    }
+
+    public BUILDER with1DIndexing(boolean oneDimensionalIndexing) {
+        this.oneDimensionalIndexing = oneDimensionalIndexing;
+        return (BUILDER) this;
+    }
+
+    public BUILDER withNoiseCalculationMode(NoiseCalculationMode noiseCalculationMode) {
+        this.noiseCalculationMode = noiseCalculationMode;
+        return (BUILDER) this;
     }
 
     public BUILDER withSize2D(int size) {
@@ -34,13 +70,10 @@ public abstract class NoiseBackendBuilder<BUILDER extends NoiseBackendBuilder<BU
         return (BUILDER) this;
     }
 
-    public BUILDER with1DIndexing(boolean oneDimensionalIndexing) {
-        this.oneDimensionalIndexing = oneDimensionalIndexing;
-        return (BUILDER) this;
-    }
-
-    public BUILDER withNoiseCalculationMode(NoiseCalculationMode noiseCalculationMode) {
-        this.noiseCalculationMode = noiseCalculationMode;
+    public BUILDER withSize2D(int size, byte lodLevel, LODUtil.LODMode lodMode) {
+        this.lodLevel = lodLevel;
+        this.lodMode = lodMode;
+        withSize2D(size);
         return (BUILDER) this;
     }
 
@@ -54,6 +87,13 @@ public abstract class NoiseBackendBuilder<BUILDER extends NoiseBackendBuilder<BU
         return (BUILDER) this;
     }
 
+    public BUILDER withSize3D(int size, byte lodLevel, LODUtil.LODMode lodMode) {
+        this.lodLevel = lodLevel;
+        this.lodMode = lodMode;
+        withSize3D(size);
+        return (BUILDER) this;
+    }
+
     public NoiseCalculationMode getNoiseCalculationMode() {
         return noiseCalculationMode;
     }
@@ -63,10 +103,11 @@ public abstract class NoiseBackendBuilder<BUILDER extends NoiseBackendBuilder<BU
     public static class CPUNoiseBackendBuilder extends NoiseBackendBuilder<CPUNoiseBackendBuilder> {
         private boolean preventRamUsage;
         private boolean vectorize;
-        private CPUParallelismMode parallelismMode;
+        private CPUParallelismMode parallelismMode = CPUParallelismMode.PARALLELISM_THREADS;
 
         private CPUNoiseBackendBuilder() {
         }
+
 
         /**
          * Uses a kernel that tries to hold all memory in L1 and L2 caches of processor cores
@@ -90,10 +131,10 @@ public abstract class NoiseBackendBuilder<BUILDER extends NoiseBackendBuilder<BU
         public NoiseBackend build() {
             NoiseBackend noiseBackend;
             if(isPreventRamUsage()) {
-                noiseBackend = new CPUJavaAparapiNoiseBackend.CacheOnly(this, result, size, size, size);
+                noiseBackend = is3D ? new CPUJavaAparapiNoiseBackend.CacheOnly(this, result, size, size, size) : new CPUJavaAparapiNoiseBackend.CacheOnly(this, result, size, size);
             }
             else {
-                noiseBackend = new CPUJavaAparapiNoiseBackend.Simple(this, result, size, size, size);
+                noiseBackend = is3D ? new CPUJavaAparapiNoiseBackend.Simple(this, result, size, size, size) : new CPUJavaAparapiNoiseBackend.Simple(this, result, size, size) ;
             }
             noiseBackend.postInit();
             return noiseBackend;
@@ -133,9 +174,9 @@ public abstract class NoiseBackendBuilder<BUILDER extends NoiseBackendBuilder<BU
         public NoiseBackend build() {
             NoiseBackend noiseBackend;
             if (useBatching) {
-                noiseBackend = new GPUAparapiNoiseBackend.Batched(preferredDevice, this, result, size, size, size);
+                noiseBackend = is3D ? new GPUAparapiNoiseBackend.Batched(preferredDevice, this, result, size, size, size) : new GPUAparapiNoiseBackend.Batched(preferredDevice, this, result, size, size);
             } else {
-                noiseBackend = new GPUAparapiNoiseBackend.Simple(preferredDevice, this, result, size, size, size);
+                noiseBackend = is3D ? new GPUAparapiNoiseBackend.Simple(preferredDevice, this, result, size, size, size) : new GPUAparapiNoiseBackend.Simple(preferredDevice, this, result, size, size);
             }
             noiseBackend.postInit();
             return noiseBackend;
