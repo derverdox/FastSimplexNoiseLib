@@ -11,12 +11,12 @@ import java.util.Arrays;
 
 public class Main {
 
-    private static final int size = 16;
+    private static final int size = 512;
 
     public static void main(String[] args) throws IOException {
         NoiseBackend backend = NoiseBackendBuilder.gpu()
                 .withSeed(1239179847938347234L)
-                .withSize2D(size, (byte) 0, LODUtil.LODMode.TILE_PYRAMID)
+                .withSize2D(size, (byte) 1, LODUtil.LODMode.TILE_PYRAMID)
                 //.vectorize(false)
                 //.withParallelismMode(NoiseBackendBuilder.CPUParallelismMode.PARALLELISM_CORES)
                 .build();
@@ -28,11 +28,11 @@ public class Main {
 
 
         if(backend.is3D) {
-            engine.computeNoise(0, 0, 0, 0.009f);
+            engine.computeNoise(-64, -64, -64, 0.009f);
             javax.imageio.ImageIO.write(backend.topLayer3DToGrayscale(), "png", new java.io.File("heightmap.png"));
         }
         else {
-            engine.computeNoise(0, 0, 0.009f);
+            engine.computeNoise(-64, -64, 0.009f);
             javax.imageio.ImageIO.write(backend.noise2DToGrayscale(), "png", new java.io.File("heightmap.png"));
         }
     }
